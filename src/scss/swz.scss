@@ -1,0 +1,213 @@
+// SenangWebs Zero — Product Tour Library Styles
+// .swz-* class names (visual design is independent)
+
+// ---- Backdrop ----
+.swz-backdrop {
+  position: fixed;
+  inset: 0;
+  pointer-events: auto;
+}
+
+.swz-backdrop-piece {
+  position: absolute;
+
+  .swz-backdrop.swz-animate & {
+    transition: top 0.3s ease, left 0.3s ease, width 0.3s ease, height 0.3s ease;
+  }
+}
+
+.swz-cutout {
+  position: absolute;
+  background: transparent;
+
+  .swz-backdrop.swz-animate & {
+    transition: top 0.3s ease, left 0.3s ease, width 0.3s ease, height 0.3s ease;
+  }
+}
+
+// ---- Dialog ----
+.swz-dialog {
+  position: fixed;
+  background: #fff;
+  border-radius: 8px;
+  box-shadow: 0 8px 32px rgba(0,0,0,0.24);
+  font-family: system-ui, -apple-system, sans-serif;
+  font-size: 14px;
+  line-height: 1.5;
+  color: #1a1a2e;
+  min-width: 260px;
+  opacity: 1;
+  transform: none;
+
+  &.swz-animate {
+    transition: opacity 0.2s ease, transform 0.3s ease, left 0.3s ease, top 0.3s ease, width 0.3s ease, max-width 0.3s ease;
+  }
+
+  &:focus {
+    outline: 2px solid #4f46e5;
+    outline-offset: 2px;
+  }
+
+  &:focus:not(:focus-visible) {
+    outline: none;
+  }
+}
+
+// ---- Dialog header ----
+.swz-dialog-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 16px 20px 0 20px;
+}
+
+.swz-dialog-title {
+  margin: 0;
+  font-size: 16px;
+  font-weight: 600;
+  color: #111;
+}
+
+.swz-dialog-close {
+  background: none;
+  border: none;
+  cursor: pointer;
+  font-size: 18px;
+  color: #888;
+  padding: 4px 8px;
+  line-height: 1;
+  border-radius: 4px;
+  flex-shrink: 0;
+
+  &:hover {
+    color: #333;
+  }
+
+  &:focus-visible {
+    outline: 2px solid #4f46e5;
+    outline-offset: 2px;
+  }
+}
+
+// ---- Dialog body ----
+.swz-dialog-body {
+  padding: 12px 20px;
+  word-break: break-word;
+}
+
+// ---- Dialog footer ----
+.swz-dialog-footer {
+  display: flex;
+  align-items: center;
+  padding: 8px 20px 16px 20px;
+  gap: 8px;
+}
+
+// ---- Buttons ----
+.swz-prev {
+  background: #f0f0f0;
+  border: none;
+  padding: 8px 16px;
+  border-radius: 6px;
+  cursor: pointer;
+  font-size: 13px;
+  font-weight: 500;
+  color: #333;
+  transition: background 0.15s ease;
+
+  &:hover {
+    background: #e0e0e0;
+  }
+
+  &:focus-visible {
+    outline: 2px solid #4f46e5;
+    outline-offset: 2px;
+  }
+}
+
+.swz-next {
+  background: #4f46e5;
+  border: none;
+  padding: 8px 20px;
+  border-radius: 6px;
+  cursor: pointer;
+  font-size: 13px;
+  font-weight: 600;
+  color: #fff;
+  transition: background 0.15s ease;
+  white-space: nowrap;
+
+  &:hover {
+    background: #4338ca;
+  }
+
+  &:focus-visible {
+    outline: 2px solid #4f46e5;
+    outline-offset: 2px;
+  }
+}
+
+// ---- Progress text ----
+.swz-progress {
+  font-size: 12px;
+  color: #888;
+  white-space: nowrap;
+}
+
+// ---- Step dots ----
+.swz-dots {
+  display: flex;
+  gap: 6px;
+  justify-content: center;
+  align-items: center;
+}
+
+.swz-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  border: none;
+  cursor: pointer;
+  padding: 0;
+  transition: all 0.2s ease;
+
+  &:focus-visible {
+    outline: 2px solid #4f46e5;
+    outline-offset: 2px;
+  }
+}
+
+// ---- Progress bar ----
+.swz-progressbar {
+  width: auto;
+  height: 3px;
+  margin: 8px 20px 0 20px;
+  border-radius: 2px;
+  transform-origin: left center;
+  transition: transform 0.3s ease;
+}
+
+// ---- Arrow ----
+.swz-arrow {
+  position: absolute;
+  width: 12px;
+  height: 12px;
+  background: #fff;
+  transform: rotate(45deg);
+  z-index: -1;
+  pointer-events: none;
+}
+
+// ---- Reduced motion ----
+@media (prefers-reduced-motion: reduce) {
+  .swz-backdrop.swz-animate .swz-cutout,
+  .swz-backdrop.swz-animate .swz-backdrop-piece,
+  .swz-dialog.swz-animate,
+  .swz-dot,
+  .swz-progressbar,
+  .swz-prev,
+  .swz-next {
+    transition: none !important;
+  }
+}

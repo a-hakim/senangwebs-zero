@@ -1,0 +1,297 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>SenangWebs Zero - Example</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    window.tailwind = window.tailwind || {};
+    window.tailwind.config = {
+      theme: {
+        extend: {
+          colors: {
+            accent: '#007370',
+            'accent-hover': '#005f5c',
+          },
+        },
+      },
+    };
+  </script>
+  <link rel="stylesheet" href="../dist/swz.css">
+</head>
+<body class="min-h-[200vh] bg-[#f5f5f7] font-sans leading-relaxed text-[#1a1a2e] antialiased">
+
+  <!-- ===== Header ===== -->
+  <header class="bg-accent px-8 py-6 text-white shadow-[0_2px_8px_rgba(0,0,0,0.12)]">
+    <h1 class="text-[22px] font-bold"
+        data-swz-tour="Welcome to SenangWebs Zero! This header contains the app logo and primary navigation."
+        data-swz-title="App Header"
+        data-swz-group="main"
+        data-swz-order="1">
+      SenangWebs Zero Demo
+    </h1>
+    <p class="mt-1 text-sm opacity-[0.85]">A framework-agnostic guided tour library</p>
+  </header>
+
+  <!-- ===== Toolbar with tour controls ===== -->
+  <div class="toolbar flex flex-wrap gap-2.5 border-b border-[#e2e2e2] bg-white px-8 py-4">
+    <button type="button"
+            class="rounded-md border border-accent bg-accent px-4 py-2 text-[13px] font-medium text-white transition hover:bg-accent-hover"
+            onclick="tourMain.start('main').then(updateDotStyles)"
+            data-swz-tour="Click here to launch the full guided tour of this page."
+            data-swz-title="Start Tour"
+            data-swz-group="main"
+            data-swz-order="0">
+      Start Main Tour
+    </button>
+    <button type="button" class="rounded-md border border-[#d0d0d0] bg-white px-4 py-2 text-[13px] font-medium transition hover:border-[#bbb] hover:bg-[#f0f0f0]" onclick="tourNav.start('nav').then(updateDotStyles)">Start Nav Tour</button>
+    <button type="button" class="rounded-md border border-[#d0d0d0] bg-white px-4 py-2 text-[13px] font-medium transition hover:border-[#bbb] hover:bg-[#f0f0f0]" onclick="tourSettings.start().then(updateDotStyles)">Settings Tour</button>
+    <button type="button" class="rounded-md border border-[#d0d0d0] bg-white px-4 py-2 text-[13px] font-medium transition hover:border-[#bbb] hover:bg-[#f0f0f0]" onclick="tourMain.refresh()">Refresh Steps</button>
+    <button type="button" class="rounded-md border border-[#d0d0d0] bg-white px-4 py-2 text-[13px] font-medium transition hover:border-[#bbb] hover:bg-[#f0f0f0]" onclick="tourMain.exit()">Exit</button>
+    <button type="button" class="rounded-md border border-[#d0d0d0] bg-white px-4 py-2 text-[13px] font-medium transition hover:border-[#bbb] hover:bg-[#f0f0f0]" onclick="tourMain.deleteFinishedTour('main'); location.reload();">Reset</button>
+    <span class="ml-auto flex items-center gap-2">
+      <span id="completionStatus" class="inline-block rounded-xl bg-amber-100 px-2.5 py-1 text-xs font-semibold text-amber-800">Not completed</span>
+    </span>
+  </div>
+
+  <main class="mx-auto max-w-[960px] p-8">
+    <!-- ===== Stats Section ===== -->
+    <section class="mb-5 grid grid-cols-[repeat(auto-fit,minmax(200px,1fr))] gap-4">
+      <div class="rounded-lg bg-white p-5 text-center shadow-[0_1px_4px_rgba(0,0,0,0.06)]"
+           data-swz-tour="This card shows <b>total users</b> registered on the platform. Stats update in real-time."
+           data-swz-title="Users Stat"
+           data-swz-group="main"
+           data-swz-order="2">
+        <div class="text-[28px] font-bold text-accent">12,847</div>
+        <div class="mt-1 text-xs uppercase text-[#888]">Total Users</div>
+      </div>
+      <div class="rounded-lg bg-white p-5 text-center shadow-[0_1px_4px_rgba(0,0,0,0.06)]"
+           data-swz-tour="Active sessions represent users currently browsing. Hover over any stat for details."
+           data-swz-title="Sessions Stat"
+           data-swz-group="main"
+           data-swz-order="3">
+        <div class="text-[28px] font-bold text-accent">384</div>
+        <div class="mt-1 text-xs uppercase text-[#888]">Active Sessions</div>
+      </div>
+      <div class="rounded-lg bg-white p-5 text-center shadow-[0_1px_4px_rgba(0,0,0,0.06)]"
+           data-swz-tour="Revenue is calculated from all active subscriptions. <em>Numbers are fictional for this demo.</em>"
+           data-swz-title="Revenue Stat"
+           data-swz-group="main"
+           data-swz-order="4">
+        <div class="text-[28px] font-bold text-accent">$48,290</div>
+        <div class="mt-1 text-xs uppercase text-[#888]">Revenue (MTD)</div>
+      </div>
+    </section>
+
+    <!-- ===== Profile Form ===== -->
+    <section class="mb-5 rounded-lg bg-white p-6 shadow-[0_1px_4px_rgba(0,0,0,0.06)]">
+      <h3 class="mb-2 text-base font-semibold"
+          data-swz-tour="Here you can edit your profile details. Fill in all fields and click Save."
+          data-swz-title="Profile Section"
+          data-swz-group="main"
+          data-swz-order="5">
+        Profile Settings
+      </h3>
+      <div class="mb-4">
+        <label class="mb-1 block text-[13px] font-semibold text-[#333]" for="name">Full Name</label>
+        <input class="w-full rounded-md border border-[#d0d0d0] px-3 py-2.5 text-sm focus:border-accent focus:outline-none focus:ring-4 focus:ring-accent/10" type="text" id="name" placeholder="John Doe" value="John Doe">
+      </div>
+      <div class="mb-4">
+        <label class="mb-1 block text-[13px] font-semibold text-[#333]" for="email">Email Address</label>
+        <input class="w-full rounded-md border border-[#d0d0d0] px-3 py-2.5 text-sm focus:border-accent focus:outline-none focus:ring-4 focus:ring-accent/10" type="email" id="email" placeholder="john@example.com" value="john@example.com">
+      </div>
+      <button type="button"
+              class="rounded-md bg-accent px-6 py-2.5 text-sm font-semibold text-white transition hover:bg-accent-hover"
+              data-swz-tour="Click <b>Save Changes</b> to persist your profile. The tour will finish after this step."
+              data-swz-title="Save Button"
+              data-swz-group="main"
+              data-swz-order="6">
+        Save Changes
+      </button>
+    </section>
+
+    <!-- ===== Nav Section ===== -->
+    <section class="mb-5 rounded-lg bg-white p-6 shadow-[0_1px_4px_rgba(0,0,0,0.06)]"
+         data-swz-tour="This is the navigation overview card. Use the links below to jump between sections."
+         data-swz-title="Navigation Overview"
+         data-swz-group="nav"
+         data-swz-order="1">
+      <h3 class="mb-2 text-base font-semibold">Navigation</h3>
+      <p class="mb-3 text-sm text-[#555]">Quick links to common sections:</p>
+      <div class="flex gap-2.5">
+        <a class="text-accent" href="#">Dashboard</a>
+        <a class="text-accent" href="#"
+           data-swz-tour="The Reports link opens detailed analytics. Try clicking it after the tour."
+           data-swz-title="Reports Link"
+           data-swz-group="nav"
+           data-swz-order="2">Reports</a>
+        <a class="text-accent" href="#">Users</a>
+        <a class="text-accent" href="#">Settings</a>
+      </div>
+    </section>
+
+    <!-- ===== Additional content for scrolling demo ===== -->
+    <section class="mb-5 rounded-lg bg-white p-6 shadow-[0_1px_4px_rgba(0,0,0,0.06)]">
+      <h3 class="mb-2 text-base font-semibold">More Content Below</h3>
+      <p class="text-sm text-[#555]">Scroll down to see the next section. SenangWebs Zero auto-scrolls to bring targets into view.</p>
+    </section>
+
+    <div class="h-[600px]"></div>
+
+    <section class="mb-5 rounded-lg bg-white p-6 shadow-[0_1px_4px_rgba(0,0,0,0.06)]"
+         data-swz-tour="Even far-down-the-page sections are reached automatically via auto-scroll."
+         data-swz-title="Deep Section"
+         data-swz-group="main"
+         data-swz-order="7">
+      <h3 class="mb-2 text-base font-semibold">Deep Section</h3>
+      <p class="text-sm text-[#555]">This section is far down on the page. Auto-scroll brings it into view during the tour.</p>
+    </section>
+  </main>
+
+  <footer class="px-10 py-10 text-center text-[13px] text-[#aaa]">Built with SenangWebs Zero - Framework-agnostic TypeScript tour library</footer>
+
+  <!-- ===== Library (UMD / CDN) ===== -->
+  <script src="../dist/swz.umd.js"></script>
+
+  <script>
+    var statusClasses = {
+      complete: 'inline-block rounded-xl bg-emerald-100 px-2.5 py-1 text-xs font-semibold text-emerald-800',
+      pending: 'inline-block rounded-xl bg-amber-100 px-2.5 py-1 text-xs font-semibold text-amber-800',
+    };
+    var accentDialogClass = 'focus:!outline-accent [&_.swz-dialog-close:focus-visible]:!outline-accent [&_.swz-prev:focus-visible]:!outline-accent [&_.swz-next]:!bg-accent [&_.swz-next:hover]:!bg-accent-hover [&_.swz-next:focus-visible]:!outline-accent';
+
+    function updateDotStyles() {
+      var dots = document.querySelectorAll('.swz-dot');
+      for (var i = 0; i < dots.length; i++) {
+        var dot = dots[i];
+        var isActive = dot.style.width === '10px';
+        dot.style.background = isActive ? '#007370' : '#cbd5e1';
+      }
+    }
+
+    // --- Helper: update completion badge ---
+    function updateStatus() {
+      var el = document.getElementById('completionStatus');
+      if (tourMain.isFinished('main')) {
+        el.textContent = 'Completed';
+        el.className = statusClasses.complete;
+      } else {
+        el.textContent = 'Not completed';
+        el.className = statusClasses.pending;
+      }
+    }
+
+    // --- Main tour (data-attribute steps) ---
+    var tourMain = new swz.SenangWebsZero({
+      debug: true,
+      rememberStep: true,
+      completeOnFinish: true,
+      backdropAnimate: true,
+      dialogAnimate: true,
+      autoScroll: true,
+      autoScrollSmooth: true,
+      autoScrollOffset: 40,
+      showStepProgress: true,
+      showStepDots: true,
+      progressBar: '#007370',
+      closeButton: true,
+      nextLabel: 'Next',
+      prevLabel: 'Back',
+      finishLabel: 'Got it!',
+      keyboardControls: true,
+      exitOnEscape: true,
+      exitOnClickOutside: true,
+      propagateEvents: true,
+      targetPadding: 30,
+      backdropColor: 'rgba(20,20,21,0.84)',
+      dialogClass: accentDialogClass,
+      dialogMaxWidth: 360,
+    });
+
+    tourMain.onFinish(function () {
+      console.log('[swz demo] Main tour finished!');
+      updateStatus();
+    });
+
+    tourMain.onBeforeStepChange(function () {
+      console.log('[swz demo] About to change step to ' + tourMain.activeStep);
+    });
+
+    tourMain.onAfterStepChange(function () {
+      console.log('[swz demo] Now at step ' + tourMain.activeStep);
+      updateDotStyles();
+    });
+
+    tourMain.onBeforeExit(function () {
+      var ok = confirm('Exit the tour?');
+      if (!ok) throw new Error('User cancelled'); // rejection cancels exit
+    });
+
+    tourMain.onAfterExit(function () {
+      console.log('[swz demo] Tour exited.');
+    });
+
+    // --- Nav group tour ---
+    var tourNav = new swz.SenangWebsZero({
+      completeOnFinish: true,
+      finishLabel: 'Done',
+      dialogPlacement: 'right',
+      dialogClass: accentDialogClass,
+      dialogMaxWidth: 300,
+    });
+
+    tourNav.onFinish(function () {
+      console.log('[swz demo] Nav tour completed!');
+    });
+
+    tourNav.onAfterStepChange(function () {
+      updateDotStyles();
+    });
+
+    // --- Settings tour (object steps, no DOM data-attr) ---
+    var tourSettings = new swz.SenangWebsZero({
+      steps: [
+        {
+          content: 'This is the <b>Settings</b> tour - declared entirely as JS objects.',
+          title: 'Settings Tour',
+          target: document.querySelector('.toolbar button:nth-child(3)'),
+          order: 1,
+        },
+        {
+          content: 'You can highlight the profile name input field.',
+          title: 'Name Field',
+          target: '#name',
+          order: 2,
+        },
+        {
+          content: 'And the email input. No <code>data-swz-*</code> attributes needed!',
+          title: 'Email Field',
+          target: '#email',
+          order: 3,
+        },
+        {
+          content: 'Object steps can also be <b>centered</b> with no target.',
+          title: 'Centered Dialog',
+          order: 4,
+        },
+      ],
+      completeOnFinish: true,
+      dialogPlacement: 'bottom',
+      dialogClass: accentDialogClass,
+      showStepProgress: true,
+    });
+
+    tourSettings.onFinish(function () {
+      console.log('[swz demo] Settings tour finished.');
+    });
+
+    tourSettings.onAfterStepChange(function () {
+      updateDotStyles();
+    });
+
+    // Initial status check
+    updateStatus();
+  </script>
+</body>
+</html>

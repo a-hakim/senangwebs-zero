@@ -1,0 +1,57 @@
+{
+  "name": "senangwebs-zero",
+  "version": "0.9.0",
+  "description": "A framework-agnostic, vanilla-TypeScript user-onboarding tour library",
+  "main": "dist/swz.cjs.js",
+  "module": "dist/swz.esm.mjs",
+  "browser": "dist/swz.umd.js",
+  "types": "dist/types/index.d.ts",
+  "style": "dist/swz.css",
+  "exports": {
+    ".": {
+      "import": "./dist/swz.esm.mjs",
+      "require": "./dist/swz.cjs.js",
+      "browser": "./dist/swz.umd.js",
+      "types": "./dist/types/index.d.ts"
+    },
+    "./dist/swz.css": "./dist/swz.css",
+    "./src/scss/swz.scss": "./src/scss/swz.scss"
+  },
+  "files": [
+    "dist/",
+    "src/scss/"
+  ],
+  "scripts": {
+    "build": "npm run build:js && npm run build:css",
+    "build:js": "rollup -c",
+    "build:css": "sass src/scss/swz.scss dist/swz.css --style compressed",
+    "dev": "rollup -c -w",
+    "lint": "tsc --noEmit",
+    "prepublishOnly": "npm run build"
+  },
+  "keywords": [
+    "tour",
+    "onboarding",
+    "walkthrough",
+    "guide",
+    "product-tour",
+    "senangwebs",
+    "vanilla-ts",
+    "framework-agnostic"
+  ],
+  "author": "SenangWebs",
+  "license": "MIT",
+  "devDependencies": {
+    "@rollup/plugin-commonjs": "^25.0.7",
+    "@rollup/plugin-node-resolve": "^15.2.3",
+    "@rollup/plugin-terser": "^1.0.0",
+    "@rollup/plugin-typescript": "^11.1.6",
+    "rollup": "^4.9.6",
+    "sass": "^1.70.0",
+    "tslib": "^2.6.2",
+    "typescript": "^5.3.3"
+  },
+  "dependencies": {
+    "@floating-ui/dom": "^1.6.3"
+  }
+}
