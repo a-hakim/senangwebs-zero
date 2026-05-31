@@ -32,7 +32,7 @@ tour.start('nav');  // steps with data-swz-group="nav"
 
 ## Declaring Steps
 
-### Method 1 — DOM Data Attributes
+### Method 1: DOM Data Attributes
 
 Add `data-swz-tour` to any element. The element becomes the highlight target.
 Step content is rendered as HTML, so only pass trusted or sanitized content.
@@ -51,7 +51,7 @@ Step content is rendered as HTML, so only pass trusted or sanitized content.
 | `data-swz-fixed` | Treat target as `position:fixed` for highlight positioning. |
 | `data-swz-margin` | Per-step scroll margin override (px). |
 
-### Method 2 — JS Object Array
+### Method 2: JS Object Array
 
 ```js
 const tour = new SenangWebsZero({

@@ -1,0 +1,321 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>SenangWebs Zero - JS Object Array Example</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    window.tailwind = window.tailwind || {};
+    window.tailwind.config = {
+      theme: {
+        extend: {
+          fontFamily: {
+            sans: ['Outfit', 'sans-serif'],
+          },
+          colors: {
+            accent: '#0f766e',
+            accentdeep: '#115e59',
+            skydeep: '#335c81',
+            skyhover: '#284766',
+            ink: '#172026',
+          },
+        },
+      },
+    };
+  </script>
+  <link rel="stylesheet" href="../dist/swz.css">
+</head>
+<body class="min-h-screen bg-[radial-gradient(circle_at_top_left,_rgba(51,92,129,0.18),_transparent_28%),radial-gradient(circle_at_top_right,_rgba(14,165,233,0.12),_transparent_30%),linear-gradient(180deg,#f8fbfd_0%,#edf2f7_100%)] font-sans text-ink antialiased">
+  <header class="sticky top-0 z-20 border-b border-white/70 bg-white/80 backdrop-blur">
+    <div class="mx-auto flex w-full max-w-6xl flex-col gap-4 px-4 py-4 md:flex-row md:items-center md:justify-between">
+      <a class="inline-flex items-center gap-3 text-ink" href="./index.html" aria-label="SenangWebs Zero examples home">
+        <span class="grid h-11 w-11 place-items-center rounded-2xl bg-skydeep text-sm font-extrabold text-white shadow-lg shadow-slate-900/10">SWZ</span>
+        <span class="block">
+          <strong class="block text-base font-extrabold leading-none">SenangWebs Zero</strong>
+          <small class="mt-1 block text-xs font-semibold uppercase tracking-[0.18em] text-slate-500">JS Object Array</small>
+        </span>
+      </a>
+      <nav class="flex flex-wrap gap-2 text-sm font-semibold" aria-label="Example pages">
+        <a class="rounded-full px-4 py-2 text-slate-600 ring-1 ring-slate-200 transition hover:bg-white hover:text-accent" href="./index.html">Overview</a>
+        <a class="rounded-full px-4 py-2 text-slate-600 ring-1 ring-slate-200 transition hover:bg-white hover:text-accent" href="./dom-data-attributes.html">DOM Attributes</a>
+        <a class="rounded-full bg-sky-50 px-4 py-2 text-skydeep ring-1 ring-sky-100" href="./js-object-array.html">JS Objects</a>
+      </nav>
+    </div>
+  </header>
+
+  <div class="border-b border-slate-200/70 bg-white/70 md:sticky md:top-[76px] md:z-10 md:backdrop-blur">
+    <div class="mx-auto flex w-full max-w-6xl flex-col gap-4 px-4 py-4 lg:flex-row lg:items-center lg:justify-between">
+      <div class="flex flex-wrap gap-2">
+        <button class="inline-flex min-h-11 items-center justify-center rounded-2xl bg-skydeep px-4 py-3 text-sm font-bold text-white shadow-lg shadow-slate-900/10 transition hover:bg-skyhover" type="button" id="startObjectTour">Start object-array tour</button>
+        <button class="inline-flex min-h-11 items-center justify-center rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm font-bold text-slate-700 transition hover:border-skydeep hover:text-skydeep" type="button" id="startWorkflowTour">Start workflow group</button>
+        <button class="inline-flex min-h-11 items-center justify-center rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm font-bold text-slate-700 transition hover:border-skydeep hover:text-skydeep" type="button" id="addObjectStep">Add dynamic step</button>
+        <button class="inline-flex min-h-11 items-center justify-center rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm font-bold text-slate-700 transition hover:border-skydeep hover:text-skydeep" type="button" id="resetObjectTour">Reset completion</button>
+      </div>
+      <span id="completionStatus" class="inline-flex min-h-9 min-w-[156px] items-center justify-center rounded-full bg-amber-100 px-4 py-2 text-xs font-extrabold uppercase tracking-[0.16em] text-amber-800">Not completed</span>
+    </div>
+  </div>
+
+  <main class="mx-auto w-full max-w-6xl space-y-6 px-4 py-8">
+    <section class="grid gap-5 rounded-[2rem] border border-white/80 bg-white/90 p-6 shadow-[0_24px_80px_rgba(15,23,42,0.08)] backdrop-blur lg:grid-cols-[minmax(0,1.2fr)_320px] lg:p-8" id="object-overview">
+      <div>
+        <p class="text-xs font-extrabold uppercase tracking-[0.22em] text-skydeep">Object-array setup</p>
+        <h1 class="mt-3 text-4xl font-extrabold leading-[0.95] text-slate-950 sm:text-5xl">Tour content lives in JavaScript.</h1>
+        <p class="mt-5 max-w-2xl text-base leading-7 text-slate-600">
+          This page uses ordinary HTML targets with stable IDs. The tour itself is declared from a JavaScript array below the markup.
+        </p>
+      </div>
+      <div class="grid gap-3" aria-label="Product metrics">
+        <div class="flex items-baseline justify-between rounded-2xl border border-sky-100 bg-sky-50/70 px-4 py-3 text-sm text-slate-600"><strong class="text-2xl font-extrabold text-slate-950">8</strong><span>modules</span></div>
+        <div class="flex items-baseline justify-between rounded-2xl border border-sky-100 bg-sky-50/70 px-4 py-3 text-sm text-slate-600"><strong class="text-2xl font-extrabold text-slate-950">3</strong><span>teams</span></div>
+        <div class="flex items-baseline justify-between rounded-2xl border border-sky-100 bg-sky-50/70 px-4 py-3 text-sm text-slate-600"><strong class="text-2xl font-extrabold text-slate-950">99.9%</strong><span>uptime</span></div>
+      </div>
+    </section>
+
+    <section class="grid gap-4 rounded-[1.75rem] border border-white/80 bg-white/90 p-5 shadow-[0_18px_60px_rgba(15,23,42,0.06)] md:grid-cols-3" aria-label="Configuration controls">
+      <label class="grid gap-2 text-sm font-bold text-slate-700" for="team-filter">
+        <span>Team</span>
+        <select class="min-h-11 rounded-2xl border border-slate-200 bg-white px-4 py-2 text-sm text-slate-700 outline-none transition focus:border-skydeep" id="team-filter">
+          <option>Customer Success</option>
+          <option>Sales</option>
+          <option>Operations</option>
+        </select>
+      </label>
+      <label class="grid gap-2 text-sm font-bold text-slate-700" for="rollout-date">
+        <span>Rollout date</span>
+        <input class="min-h-11 rounded-2xl border border-slate-200 bg-white px-4 py-2 text-sm text-slate-700 outline-none transition focus:border-skydeep" id="rollout-date" type="date" value="2026-06-15">
+      </label>
+      <div class="flex items-end">
+        <button class="inline-flex min-h-11 w-full items-center justify-center rounded-2xl bg-skydeep px-4 py-3 text-sm font-bold text-white shadow-lg shadow-slate-900/10 transition hover:bg-skyhover" type="button" id="save-settings">Save settings</button>
+      </div>
+    </section>
+
+    <section class="grid gap-4 md:grid-cols-3" aria-label="Object example metrics">
+      <article class="rounded-[1.75rem] border border-white/80 bg-white/90 p-5 shadow-[0_18px_60px_rgba(15,23,42,0.06)]" id="activation-card">
+        <span class="text-sm font-bold uppercase tracking-[0.18em] text-slate-500">Activation</span>
+        <strong class="mt-4 block text-4xl font-extrabold text-skydeep">81%</strong>
+        <small class="mt-3 block text-sm text-slate-500">+6 points this month</small>
+      </article>
+      <article class="rounded-[1.75rem] border border-white/80 bg-white/90 p-5 shadow-[0_18px_60px_rgba(15,23,42,0.06)]" id="retention-card">
+        <span class="text-sm font-bold uppercase tracking-[0.18em] text-slate-500">Retention</span>
+        <strong class="mt-4 block text-4xl font-extrabold text-skydeep">94%</strong>
+        <small class="mt-3 block text-sm text-slate-500">Stable across cohorts</small>
+      </article>
+      <article class="rounded-[1.75rem] border border-white/80 bg-white/90 p-5 shadow-[0_18px_60px_rgba(15,23,42,0.06)]" id="handoff-card">
+        <span class="text-sm font-bold uppercase tracking-[0.18em] text-slate-500">Handoffs</span>
+        <strong class="mt-4 block text-4xl font-extrabold text-skydeep">16</strong>
+        <small class="mt-3 block text-sm text-slate-500">4 need owner review</small>
+      </article>
+    </section>
+
+    <section class="grid gap-4 lg:grid-cols-[minmax(0,1.2fr)_320px]">
+      <article class="rounded-[1.75rem] border border-white/80 bg-white/90 p-6 shadow-[0_18px_60px_rgba(15,23,42,0.06)]" id="release-plan">
+        <div class="mb-5 flex items-start justify-between gap-4">
+          <div>
+            <p class="text-xs font-extrabold uppercase tracking-[0.22em] text-skydeep">Release plan</p>
+            <h2 class="mt-2 text-2xl font-extrabold text-slate-950">Object steps can target selectors</h2>
+          </div>
+          <span class="inline-flex rounded-full bg-emerald-100 px-3 py-1 text-xs font-bold text-emerald-700">On track</span>
+        </div>
+        <ol class="space-y-4">
+          <li class="rounded-2xl border border-slate-100 bg-slate-50 px-4 py-4">
+            <strong class="block text-base font-bold text-slate-900">Configure</strong>
+            <span class="mt-1 block text-sm text-slate-600">Set the audience, rollout date, and owner.</span>
+          </li>
+          <li class="rounded-2xl border border-slate-100 bg-slate-50 px-4 py-4">
+            <strong class="block text-base font-bold text-slate-900">Preview</strong>
+            <span class="mt-1 block text-sm text-slate-600">Review the tour content before release.</span>
+          </li>
+          <li class="rounded-2xl border border-slate-100 bg-slate-50 px-4 py-4">
+            <strong class="block text-base font-bold text-slate-900">Publish</strong>
+            <span class="mt-1 block text-sm text-slate-600">Launch the walkthrough for selected users.</span>
+          </li>
+        </ol>
+      </article>
+
+      <aside class="rounded-[1.75rem] border border-white/80 bg-white/90 p-6 shadow-[0_18px_60px_rgba(15,23,42,0.06)]" id="code-notes">
+        <p class="text-xs font-extrabold uppercase tracking-[0.22em] text-skydeep">Code notes</p>
+        <h2 class="mt-2 text-2xl font-extrabold text-slate-950">No target attributes required</h2>
+        <pre class="mt-5 overflow-x-auto rounded-2xl bg-slate-950/95 p-4 text-[13px] leading-6 text-sky-50"><code>var objectTour = new swz.SenangWebsZero({
+  steps: objectSteps
+});</code></pre>
+      </aside>
+    </section>
+
+    <section class="grid gap-4 lg:grid-cols-2" aria-label="Workflow group">
+      <article class="rounded-[1.75rem] border border-white/80 bg-white/90 p-6 shadow-[0_18px_60px_rgba(15,23,42,0.06)]" id="workflow-audience">
+        <p class="text-xs font-extrabold uppercase tracking-[0.22em] text-skydeep">Workflow group</p>
+        <h2 class="mt-2 text-2xl font-extrabold text-slate-950">Audience rules</h2>
+        <p class="mt-4 max-w-xl text-sm leading-7 text-slate-600">Grouped object steps use a <code class="rounded bg-slate-100 px-1.5 py-0.5 text-skydeep">group</code> property and run with <code class="rounded bg-slate-100 px-1.5 py-0.5 text-skydeep">start('workflow')</code>.</p>
+      </article>
+      <article class="rounded-[1.75rem] border border-white/80 bg-white/90 p-6 shadow-[0_18px_60px_rgba(15,23,42,0.06)]" id="workflow-review">
+        <p class="text-xs font-extrabold uppercase tracking-[0.22em] text-skydeep">Workflow group</p>
+        <h2 class="mt-2 text-2xl font-extrabold text-slate-950">Review queue</h2>
+        <p class="mt-4 max-w-xl text-sm leading-7 text-slate-600">The same tour instance can hold ungrouped and grouped object steps.</p>
+      </article>
+    </section>
+
+    <section class="rounded-[1.75rem] border border-white/80 bg-white/90 p-6 shadow-[0_18px_60px_rgba(15,23,42,0.06)]" id="dynamic-step-target">
+      <p class="text-xs font-extrabold uppercase tracking-[0.22em] text-skydeep">Dynamic step target</p>
+      <h2 class="mt-2 text-3xl font-extrabold text-slate-950">Add a step at runtime</h2>
+      <p class="mt-4 max-w-2xl text-sm leading-7 text-slate-600">Use the toolbar button to append this panel to the ungrouped object tour.</p>
+    </section>
+  </main>
+
+  <footer class="mx-auto w-full max-w-6xl px-4 pb-8 text-sm text-slate-500">
+    JS object array example. The markup does not declare tour attributes.
+  </footer>
+
+  <div class="hidden rounded-xl focus:!outline-skydeep [&_.swz-dialog-close:focus-visible]:!outline-skydeep [&_.swz-prev:focus-visible]:!outline-skydeep [&_.swz-next]:!border-skydeep [&_.swz-next]:!bg-skydeep [&_.swz-next]:!text-white [&_.swz-next:hover]:!bg-skyhover [&_.swz-next:focus-visible]:!outline-skydeep"></div>
+
+  <script src="../dist/swz.umd.js"></script>
+  <script>
+    var statusClasses = {
+      pending: 'inline-flex min-h-9 min-w-[156px] items-center justify-center rounded-full bg-amber-100 px-4 py-2 text-xs font-extrabold uppercase tracking-[0.16em] text-amber-800',
+      complete: 'inline-flex min-h-9 min-w-[156px] items-center justify-center rounded-full bg-emerald-100 px-4 py-2 text-xs font-extrabold uppercase tracking-[0.16em] text-emerald-800'
+    };
+    var blueDialogClass = 'rounded-xl focus:!outline-skydeep [&_.swz-dialog-close:focus-visible]:!outline-skydeep [&_.swz-prev:focus-visible]:!outline-skydeep [&_.swz-next]:!border-skydeep [&_.swz-next]:!bg-skydeep [&_.swz-next]:!text-white [&_.swz-next:hover]:!bg-skyhover [&_.swz-next:focus-visible]:!outline-skydeep';
+    var objectSteps = [
+      {
+        content: 'This step is declared in a JavaScript object and points at <code>#object-overview</code>.',
+        title: 'Object Overview',
+        target: '#object-overview',
+        order: 1
+      },
+      {
+        content: 'Targets can be real DOM elements. This step uses <code>document.getElementById()</code>.',
+        title: 'Team Filter',
+        target: document.getElementById('team-filter'),
+        order: 2
+      },
+      {
+        content: 'Selector targets are useful when markup is rendered by a template or framework.',
+        title: 'Activation Card',
+        target: '#activation-card',
+        order: 3
+      },
+      {
+        content: 'Object steps can use the same options as data-attribute steps, including custom order.',
+        title: 'Release Plan',
+        target: '#release-plan',
+        order: 4
+      },
+      {
+        content: 'Leave <code>target</code> empty for a centered dialog with no highlighted element.',
+        title: 'Centered Step',
+        order: 5
+      },
+      {
+        content: 'This grouped object step runs only with <code>start(&quot;workflow&quot;)</code>.',
+        title: 'Workflow Audience',
+        target: '#workflow-audience',
+        group: 'workflow',
+        order: 1
+      },
+      {
+        content: 'The group property keeps workflow-specific steps out of the default tour.',
+        title: 'Workflow Review',
+        target: '#workflow-review',
+        group: 'workflow',
+        order: 2
+      }
+    ];
+
+    var objectTour = new swz.SenangWebsZero({
+      steps: objectSteps,
+      debug: true,
+      rememberStep: true,
+      completeOnFinish: true,
+      backdropAnimate: true,
+      dialogAnimate: true,
+      autoScroll: true,
+      autoScrollSmooth: true,
+      autoScrollOffset: 36,
+      showStepProgress: true,
+      showStepDots: true,
+      progressBar: '#335c81',
+      closeButton: true,
+      nextLabel: 'Next',
+      prevLabel: 'Back',
+      finishLabel: 'Done',
+      keyboardControls: true,
+      exitOnEscape: true,
+      exitOnClickOutside: true,
+      targetPadding: 24,
+      backdropColor: 'rgba(18, 24, 30, 0.82)',
+      dialogClass: blueDialogClass,
+      dialogMaxWidth: 370
+    });
+
+    var dynamicStepAdded = false;
+
+    function tintDots() {
+      var dots = document.querySelectorAll('.swz-dot');
+      for (var i = 0; i < dots.length; i++) {
+        var dot = dots[i];
+        var isActive = dot.style.width === '10px';
+        dot.style.background = isActive ? '#335c81' : '#c6d1dc';
+      }
+    }
+
+    function updateStatus() {
+      var el = document.getElementById('completionStatus');
+      var mainDone = objectTour.isFinished();
+      var workflowDone = objectTour.isFinished('workflow');
+      if (mainDone && workflowDone) {
+        el.textContent = 'All completed';
+        el.className = statusClasses.complete;
+      } else if (mainDone) {
+        el.textContent = 'Object tour completed';
+        el.className = statusClasses.complete;
+      } else {
+        el.textContent = 'Not completed';
+        el.className = statusClasses.pending;
+      }
+    }
+
+    objectTour.onFinish(function () {
+      console.log('[swz object array] Tour finished.');
+      updateStatus();
+    });
+
+    objectTour.onAfterStepChange(function () {
+      tintDots();
+    });
+
+    document.getElementById('startObjectTour').addEventListener('click', function () {
+      objectTour.start().then(tintDots);
+    });
+
+    document.getElementById('startWorkflowTour').addEventListener('click', function () {
+      objectTour.start('workflow').then(tintDots);
+    });
+
+    document.getElementById('addObjectStep').addEventListener('click', function () {
+      if (dynamicStepAdded) return;
+      dynamicStepAdded = true;
+      objectTour.addSteps([
+        {
+          content: 'This step was added after construction with <code>addSteps()</code>.',
+          title: 'Dynamic Step',
+          target: '#dynamic-step-target',
+          order: 6
+        }
+      ]);
+      this.textContent = 'Dynamic step added';
+      objectTour.refresh().then(tintDots);
+    });
+
+    document.getElementById('resetObjectTour').addEventListener('click', function () {
+      objectTour.deleteFinishedTour();
+      objectTour.deleteFinishedTour('workflow');
+      updateStatus();
+    });
+
+    updateStatus();
+  </script>
+</body>
+</html>
