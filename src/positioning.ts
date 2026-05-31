@@ -210,30 +210,40 @@ function withArrow(
 ): PositionResult {
   const anchorCX = anchor.x + anchor.width / 2;
   const anchorCY = anchor.y + anchor.height / 2;
+  const arrowSize = 12;
+  const arrowHalf = arrowSize / 2;
   const arrowMargin = 10;
   const withArrowResult = { ...result };
 
   switch (placement) {
-    case 'top':
-      withArrowResult.arrowX = clamp(anchorCX - result.x, arrowMargin, Math.max(arrowMargin, dw - arrowMargin));
-      withArrowResult.arrowY = dh;
+    case 'top': {
+      const arrowCenterX = clamp(anchorCX - result.x, arrowMargin, Math.max(arrowMargin, dw - arrowMargin));
+      withArrowResult.arrowX = arrowCenterX - arrowHalf;
+      withArrowResult.arrowY = dh - arrowHalf;
       withArrowResult.arrowRotation = 135;
       break;
-    case 'bottom':
-      withArrowResult.arrowX = clamp(anchorCX - result.x, arrowMargin, Math.max(arrowMargin, dw - arrowMargin));
-      withArrowResult.arrowY = -6;
+    }
+    case 'bottom': {
+      const arrowCenterX = clamp(anchorCX - result.x, arrowMargin, Math.max(arrowMargin, dw - arrowMargin));
+      withArrowResult.arrowX = arrowCenterX - arrowHalf;
+      withArrowResult.arrowY = -arrowHalf;
       withArrowResult.arrowRotation = -45;
       break;
-    case 'left':
-      withArrowResult.arrowX = dw;
-      withArrowResult.arrowY = clamp(anchorCY - result.y, arrowMargin, Math.max(arrowMargin, dh - arrowMargin));
+    }
+    case 'left': {
+      const arrowCenterY = clamp(anchorCY - result.y, arrowMargin, Math.max(arrowMargin, dh - arrowMargin));
+      withArrowResult.arrowX = dw - arrowHalf;
+      withArrowResult.arrowY = arrowCenterY - arrowHalf;
       withArrowResult.arrowRotation = 45;
       break;
-    case 'right':
-      withArrowResult.arrowX = -6;
-      withArrowResult.arrowY = clamp(anchorCY - result.y, arrowMargin, Math.max(arrowMargin, dh - arrowMargin));
+    }
+    case 'right': {
+      const arrowCenterY = clamp(anchorCY - result.y, arrowMargin, Math.max(arrowMargin, dh - arrowMargin));
+      withArrowResult.arrowX = -arrowHalf;
+      withArrowResult.arrowY = arrowCenterY - arrowHalf;
       withArrowResult.arrowRotation = 225;
       break;
+    }
   }
 
   return withArrowResult;

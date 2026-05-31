@@ -44,7 +44,7 @@
   }
 
   &:focus {
-    outline: 2px solid #4f46e5;
+    outline: 2px solid #007370;
     outline-offset: 2px;
   }
 
@@ -85,7 +85,7 @@
   }
 
   &:focus-visible {
-    outline: 2px solid #4f46e5;
+    outline: 2px solid #007370;
     outline-offset: 2px;
   }
 }
@@ -121,13 +121,13 @@
   }
 
   &:focus-visible {
-    outline: 2px solid #4f46e5;
+    outline: 2px solid #007370;
     outline-offset: 2px;
   }
 }
 
 .swz-next {
-  background: #4f46e5;
+  background: #007370;
   border: none;
   padding: 8px 20px;
   border-radius: 6px;
@@ -139,11 +139,11 @@
   white-space: nowrap;
 
   &:hover {
-    background: #4338ca;
+    background: #005f5d;
   }
 
   &:focus-visible {
-    outline: 2px solid #4f46e5;
+    outline: 2px solid #007370;
     outline-offset: 2px;
   }
 }
@@ -173,7 +173,7 @@
   transition: all 0.2s ease;
 
   &:focus-visible {
-    outline: 2px solid #4f46e5;
+    outline: 2px solid #007370;
     outline-offset: 2px;
   }
 }

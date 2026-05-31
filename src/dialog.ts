@@ -191,7 +191,7 @@ function updateDots(steps: InternalStep[], activeStep: number, options: SWZOptio
     if (i === activeStep) {
       dot.style.width = '10px';
       dot.style.height = '10px';
-      dot.style.background = '#4f46e5';
+      dot.style.background = '#007370';
     } else {
       dot.style.width = '8px';
       dot.style.height = '8px';
