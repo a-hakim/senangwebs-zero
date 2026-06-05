@@ -1,4 +1,4 @@
-import type { SWZOptions, InternalStep, SWZStep } from './types';
+import type { SWZOptions, InternalStep, SWZPlacement, SWZStep } from './types';
 import { DEFAULTS } from './types';
 
 export function mergeOptions(userOptions?: SWZOptions, baseOptions?: SWZOptions): SWZOptions {
@@ -60,6 +60,7 @@ export function scanDOM(group?: string): InternalStep[] {
     const marginStr = el.getAttribute('data-swz-margin');
     const margin = parseOptionalNumber(marginStr);
     const fixed = el.hasAttribute('data-swz-fixed');
+    const placement = parsePlacement(el.getAttribute('data-swz-placement'));
 
     if (group ? stepGroup !== group : stepGroup) return;
 
@@ -71,6 +72,7 @@ export function scanDOM(group?: string): InternalStep[] {
       group: stepGroup,
       margin,
       fixed,
+      placement,
       _index: i,
     });
   });
@@ -90,6 +92,7 @@ export function objectStepsToInternal(steps: SWZStep[], debug: boolean): Interna
     group: s.group,
     margin: (s as { margin?: number }).margin,
     fixed: (s as { fixed?: boolean }).fixed,
+    placement: s.placement,
     _index: i,
   }));
 }
@@ -114,4 +117,19 @@ function parseOptionalNumber(value: string | null): number | undefined {
   if (value === null || value.trim() === '') return undefined;
   const parsed = Number(value);
   return Number.isFinite(parsed) ? parsed : undefined;
+}
+
+function parsePlacement(value: string | null): SWZPlacement | undefined {
+  if (!value) return undefined;
+  const normalized = value.trim().toLowerCase();
+  if (
+    normalized === 'auto' ||
+    normalized === 'top' ||
+    normalized === 'right' ||
+    normalized === 'bottom' ||
+    normalized === 'left'
+  ) {
+    return normalized;
+  }
+  return undefined;
 }

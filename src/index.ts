@@ -1,2 +1,2 @@
 export { SenangWebsZero } from './SenangWebsZero';
-export type { SWZOptions, SWZStep } from './types';
+export type { SWZOptions, SWZPlacement, SWZStep } from './types';

@@ -2,6 +2,8 @@
 
 A framework-agnostic, vanilla-TypeScript user-onboarding tour library. Renders guided product tours / onboarding walkthroughs with step-by-step dialogs, backdrop highlights, and collision-aware positioning.
 
+[![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
+
 ```bash
 npm install senangwebs-zero
 ```
@@ -50,6 +52,7 @@ Step content is rendered as HTML, so only pass trusted or sanitized content.
 | `data-swz-order` | Sort order (ascending). |
 | `data-swz-fixed` | Treat target as `position:fixed` for highlight positioning. |
 | `data-swz-margin` | Per-step scroll margin override (px). |
+| `data-swz-placement` | Per-step dialog placement: `auto`, `top`, `right`, `bottom`, or `left`. |
 
 ### Method 2: JS Object Array
 
@@ -57,12 +60,15 @@ Step content is rendered as HTML, so only pass trusted or sanitized content.
 const tour = new SenangWebsZero({
   steps: [
     { content: 'Welcome!', title: 'Intro', target: '#header', order: 1 },
-    { content: 'Click save to continue.', target: '#save-btn', order: 2 },
+    { content: 'Click save to continue.', target: '#save-btn', placement: 'right', order: 2 },
     { content: 'Centered step with no target.', title: 'Done', order: 3 },
   ],
 });
 tour.start();
 ```
+
+Object steps support `content`, `title`, `target`, `order`, `group`, `margin`, `fixed`, and `placement`.
+Use `placement: 'auto'` to let SWZ pick the best side for that step, or set `top`, `right`, `bottom`, or `left` to prefer a side while still allowing viewport-safe fallback.
 
 ## API
 
@@ -142,7 +148,7 @@ tour.onFinish(async () => {
 | `dialogZ` | `number` | `999` | `z-index` of the dialog. |
 | `dialogWidth` | `number` | `0` | Fixed dialog width (px). `0` = auto. |
 | `dialogMaxWidth` | `number` | `340` | Max dialog width (px). |
-| `dialogPlacement` | `'top'\|'right'\|'bottom'\|'left'` | `undefined` | Preferred side; `undefined` = auto. |
+| `dialogPlacement` | `'auto'\|'top'\|'right'\|'bottom'\|'left'` | `undefined` | Preferred side. `auto` or `undefined` lets SWZ choose. |
 | `dialogAnimate` | `boolean` | `true` | Animate dialog position between steps. |
 | `closeButton` | `boolean` | `true` | Show close (✕) button. |
 | `nextLabel` | `string` | `'Next'` | Next button text. |
@@ -213,7 +219,7 @@ Pass `dialogClass` / `backdropClass` for custom styling hooks.
 Full type definitions ship with the package:
 
 ```ts
-import type { SWZOptions, SWZStep } from 'senangwebs-zero';
+import type { SWZOptions, SWZPlacement, SWZStep } from 'senangwebs-zero';
 ```
 
 ## Build

@@ -300,6 +300,7 @@ export class SenangWebsZero {
       group: s.group,
       margin: s.margin,
       fixed: s.fixed,
+      placement: s.placement,
     }));
   }
 
@@ -586,6 +587,7 @@ export class SenangWebsZero {
         group: publicStep.group,
         margin: publicStep.margin,
         fixed: publicStep.fixed,
+        placement: publicStep.placement,
       };
     });
   }

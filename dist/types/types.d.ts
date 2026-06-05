@@ -1,3 +1,4 @@
+export type SWZPlacement = 'auto' | 'top' | 'right' | 'bottom' | 'left';
 export interface SWZStep {
     content: string;
     title?: string;
@@ -6,6 +7,7 @@ export interface SWZStep {
     group?: string;
     margin?: number;
     fixed?: boolean;
+    placement?: SWZPlacement;
 }
 export interface SWZOptions {
     steps?: SWZStep[];
@@ -20,7 +22,7 @@ export interface SWZOptions {
     dialogZ?: number;
     dialogWidth?: number;
     dialogMaxWidth?: number;
-    dialogPlacement?: 'top' | 'right' | 'bottom' | 'left';
+    dialogPlacement?: SWZPlacement;
     dialogAnimate?: boolean;
     closeButton?: boolean;
     nextLabel?: string;
@@ -50,5 +52,6 @@ export interface InternalStep {
     group?: string;
     margin?: number;
     fixed?: boolean;
+    placement?: SWZPlacement;
     _index: number;
 }

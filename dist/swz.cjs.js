@@ -1,4 +1,4 @@
-/*! SenangWebs Zero v0.9.1 | MIT License | https://github.com/a-hakim/senangwebs-zero */
+/*! SenangWebs Zero v0.9.2 | MIT License | https://github.com/a-hakim/senangwebs-zero */
 'use strict';
 
 const DEFAULTS = {
@@ -88,6 +88,7 @@ function scanDOM(group) {
         const marginStr = el.getAttribute('data-swz-margin');
         const margin = parseOptionalNumber(marginStr);
         const fixed = el.hasAttribute('data-swz-fixed');
+        const placement = parsePlacement(el.getAttribute('data-swz-placement'));
         if (group ? stepGroup !== group : stepGroup)
             return;
         steps.push({
@@ -98,6 +99,7 @@ function scanDOM(group) {
             group: stepGroup,
             margin,
             fixed,
+            placement,
             _index: i,
         });
     });
@@ -117,6 +119,7 @@ function objectStepsToInternal(steps, debug) {
         group: s.group,
         margin: s.margin,
         fixed: s.fixed,
+        placement: s.placement,
         _index: i,
     }));
 }
@@ -140,6 +143,19 @@ function parseOptionalNumber(value) {
         return undefined;
     const parsed = Number(value);
     return Number.isFinite(parsed) ? parsed : undefined;
+}
+function parsePlacement(value) {
+    if (!value)
+        return undefined;
+    const normalized = value.trim().toLowerCase();
+    if (normalized === 'auto' ||
+        normalized === 'top' ||
+        normalized === 'right' ||
+        normalized === 'bottom' ||
+        normalized === 'left') {
+        return normalized;
+    }
+    return undefined;
 }
 
 const STORAGE_PREFIX = 'swz:';
@@ -581,9 +597,11 @@ function positionDialog(step, options) {
     const viewportH = window.innerHeight;
     const dw = dialog.offsetWidth || 300;
     const dh = dialog.offsetHeight || 150;
-    const preferred = options.dialogPlacement || undefined;
+    const preferred = step.placement ?? options.dialogPlacement;
     let bestResult = null;
-    const placements = preferred ? [preferred, ...PLACEMENT_ORDER.filter(p => p !== preferred)] : PLACEMENT_ORDER;
+    const placements = preferred && preferred !== 'auto'
+        ? [preferred, ...PLACEMENT_ORDER.filter(p => p !== preferred)]
+        : PLACEMENT_ORDER;
     for (const placement of placements) {
         const result = shiftPlacement(computePlacement(anchorRect, dw, dh, gap, placement), placement, dw, dh, viewportW, viewportH);
         if (hasMainAxisRoom(result, placement, dw, dh, viewportW, viewportH)) {
@@ -1007,6 +1025,7 @@ class SenangWebsZero {
             group: s.group,
             margin: s.margin,
             fixed: s.fixed,
+            placement: s.placement,
         }));
     }
     _mount() {
@@ -1262,6 +1281,7 @@ class SenangWebsZero {
                 group: publicStep.group,
                 margin: publicStep.margin,
                 fixed: publicStep.fixed,
+                placement: publicStep.placement,
             };
         });
     }

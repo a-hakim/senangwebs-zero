@@ -56,10 +56,12 @@ export function positionDialog(
   const dw = dialog.offsetWidth || 300;
   const dh = dialog.offsetHeight || 150;
 
-  const preferred = options.dialogPlacement || undefined;
+  const preferred = step.placement ?? options.dialogPlacement;
   let bestResult: PositionResult | null = null;
 
-  const placements = preferred ? [preferred, ...PLACEMENT_ORDER.filter(p => p !== preferred)] : PLACEMENT_ORDER;
+  const placements = preferred && preferred !== 'auto'
+    ? [preferred, ...PLACEMENT_ORDER.filter(p => p !== preferred)]
+    : PLACEMENT_ORDER;
 
   for (const placement of placements) {
     const result = shiftPlacement(computePlacement(anchorRect, dw, dh, gap, placement), placement, dw, dh, viewportW, viewportH);
