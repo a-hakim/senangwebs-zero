@@ -1,4 +1,5 @@
 import type { InternalStep, SWZOptions } from './types';
+import type { DialogSession } from './dialog';
 export interface PositionResult {
     x: number;
     y: number;
@@ -7,5 +8,5 @@ export interface PositionResult {
     arrowRotation?: number;
     placement: string;
 }
-export declare function positionDialog(step: InternalStep, options: SWZOptions): PositionResult;
-export declare function applyPosition(result: PositionResult): void;
+export declare function positionDialog(session: DialogSession, step: InternalStep, options: SWZOptions): PositionResult;
+export declare function applyPosition(dialogSession: DialogSession, result: PositionResult): void;

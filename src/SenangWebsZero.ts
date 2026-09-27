@@ -20,20 +20,30 @@ import {
   createBackdrop,
   updateBackdrop,
   removeBackdrop,
-  setupBackdropResizeHandler,
-  teardownBackdropResizeHandler,
+  setupViewportHandlers,
+  teardownViewportHandlers,
 } from './backdrop';
+import type { BackdropSession } from './backdrop';
+import type { DialogSession } from './dialog';
 import {
   createDialog,
   updateDialogContent,
   removeDialog,
-  getDialogButtons,
 } from './dialog';
 import { positionDialog, applyPosition } from './positioning';
 import { scrollTargetIntoView } from './scroller';
 import { logDebug, warnDebug } from './utils';
 
 type LifecycleHandler = () => void | Promise<unknown>;
+
+const FOCUSABLE_SELECTOR = [
+  'button:not([disabled])',
+  'a[href]',
+  'input:not([disabled])',
+  'select:not([disabled])',
+  'textarea:not([disabled])',
+  '[tabindex]:not([tabindex="-1"])',
+].join(', ');
 
 export class SenangWebsZero {
   // Public properties
@@ -59,10 +69,18 @@ export class SenangWebsZero {
   // Internal state
   private _currentGroup: string = 'tour';
   private _resizeDebounceTimer: ReturnType<typeof setTimeout> | null = null;
+  private _scrollRafId: number | null = null;
   private _keyHandler: ((e: KeyboardEvent) => void) | null = null;
   private _backdropClickHandler: ((e: MouseEvent) => void) | null = null;
   private _dotClickHandler: ((e: MouseEvent) => void) | null = null;
   private _previousFocus: HTMLElement | null = null;
+
+  // Per-instance DOM sessions (module-level views, instance-scoped refs)
+  private _dialogSession!: DialogSession;
+  private _backdropSession!: BackdropSession;
+
+  // Async transition guard: serializes step changes / finish / exit
+  private _transitioning = false;
 
   constructor(userOptions?: SWZOptions) {
     this.options = mergeOptions(userOptions);
@@ -76,6 +94,10 @@ export class SenangWebsZero {
   async start(group?: string): Promise<void> {
     if (this.isVisible) {
       warnDebug('start() called while tour is already visible. Call exit() first.', this.options.debug ?? true);
+      return;
+    }
+    if (this._transitioning) {
+      warnDebug('start() skipped: another lifecycle action is in progress.', this.options.debug ?? true);
       return;
     }
 
@@ -107,9 +129,13 @@ export class SenangWebsZero {
     this._mount();
     this.isVisible = true;
 
-    // Render first step
-    await this._renderActiveStep(false);
-    logDebug(`Tour started. Group: "${this._currentGroup}", Steps: ${this.backendSteps.length}`, this.options.debug ?? true);
+    try {
+      // Render first step
+      await this._renderActiveStep(false);
+      logDebug(`Tour started. Group: "${this._currentGroup}", Steps: ${this.backendSteps.length}`, this.options.debug ?? true);
+    } finally {
+      this._transitioning = false;
+    }
   }
 
   visitStep(step: 'next' | 'prev' | number): Promise<void> {
@@ -120,10 +146,9 @@ export class SenangWebsZero {
   }
 
   async nextStep(): Promise<void> {
-    if (!this.isVisible) return;
+    if (!this.isVisible || this._transitioning) return;
     const lastIndex = this.backendSteps.length - 1;
     if (this.activeStep >= lastIndex) {
-      // Finish
       await this._finish();
       return;
     }
@@ -131,12 +156,18 @@ export class SenangWebsZero {
   }
 
   async prevStep(): Promise<void> {
-    if (!this.isVisible || this.activeStep <= 0) return;
+    if (!this.isVisible || this._transitioning || this.activeStep <= 0) return;
     await this._goToStep(this.activeStep - 1);
   }
 
   async exit(): Promise<void> {
     if (!this.isVisible) return;
+
+    // Snap in-flight navigation and wait for it to settle so we tear down cleanly.
+    if (this._transitioning) {
+      this._cancelInFlightRender();
+      return;
+    }
 
     // Fire onBeforeExit (gating)
     if (this._onBeforeExit) {
@@ -152,32 +183,42 @@ export class SenangWebsZero {
       }
     }
 
-    this._teardown();
-    this.isVisible = false;
+    this._transitioning = true;
+    try {
+      this._teardown();
+      this.isVisible = false;
 
-    if (this._onAfterExit) {
-      try {
-        await this._onAfterExit();
-      } catch { /* not gating */ }
+      if (this._onAfterExit) {
+        try {
+          await this._onAfterExit();
+        } catch { /* not gating */ }
+      }
+
+      logDebug('Tour exited.', this.options.debug ?? true);
+    } finally {
+      this._transitioning = false;
     }
-
-    logDebug('Tour exited.', this.options.debug ?? true);
   }
 
   async finishTour(exit: boolean = true, group?: string): Promise<void> {
-    if (!this.options.completeOnFinish) {
-      logDebug('completeOnFinish is false; no persistence recorded.', this.options.debug ?? true);
-      return;
+    // Fire onFinish (gating) — same pipeline as the Finish button.
+    if (this._onFinish) {
+      try {
+        const result = await this._onFinish();
+        if (result === false) {
+          logDebug('Finish cancelled by onFinish handler.', this.options.debug ?? true);
+          return;
+        }
+      } catch {
+        logDebug('Finish cancelled by onFinish rejection.', this.options.debug ?? true);
+        return;
+      }
     }
 
-    const g = normalizeGroupKey(group === undefined ? this._currentGroup : group);
-    setFinished(g);
-    deleteStoredStep(g);
-    logDebug(`Completion recorded for group "${g}".`, this.options.debug ?? true);
+    this._recordCompletion(normalizeGroupKey(group === undefined ? this._currentGroup : group));
 
     if (exit && this.isVisible) {
-      this._teardown();
-      this.isVisible = false;
+      await this.exit();
     }
   }
 
@@ -213,7 +254,16 @@ export class SenangWebsZero {
     }
     this._resolveSteps(this.group);
     if (this.activeStep >= this.backendSteps.length) {
-      this.activeStep = Math.max(0, this.backendSteps.length - 1);
+      // Prefer the persisted step when available so refresh() stays consistent
+      // with start()'s rememberStep behavior.
+      if (this.options.rememberStep) {
+        const stored = getStoredStep(this._currentGroup);
+        this.activeStep = stored !== null && stored >= 0 && stored < this.backendSteps.length
+          ? stored
+          : Math.max(0, this.backendSteps.length - 1);
+      } else {
+        this.activeStep = Math.max(0, this.backendSteps.length - 1);
+      }
     }
     if (this.backendSteps.length === 0) {
       warnDebug('No steps found after refresh.', this.options.debug ?? true);
@@ -230,20 +280,27 @@ export class SenangWebsZero {
 
   async refreshDialog(): Promise<void> {
     if (!this.isVisible || this.backendSteps.length === 0) return;
+    if (this._transitioning) {
+      warnDebug('refreshDialog() skipped: a step transition is in progress.', this.options.debug ?? true);
+      return;
+    }
     this._syncPublicStepsToBackend();
     const step = this.backendSteps[this.activeStep];
     if (!step) return;
-    updateDialogContent(step, this.backendSteps, this.activeStep, this.options);
+    updateDialogContent(this._dialogSession, step, this.backendSteps, this.activeStep, this.options);
     await this._positionDialog(step);
   }
 
   async updatePositions(): Promise<void> {
     if (!this.isVisible || this.backendSteps.length === 0) return;
+    if (this._transitioning) {
+      warnDebug('updatePositions() skipped: a step transition is in progress.', this.options.debug ?? true);
+      return;
+    }
     this._syncPublicStepsToBackend();
     const step = this.backendSteps[this.activeStep];
     if (!step) return;
-    step.target = resolveStepTarget(step, this.activeStep, this.options.debug ?? true);
-    updateBackdrop(step, this.options);
+    updateBackdrop(this._backdropSession, step, this.options);
     await this._positionDialog(step);
   }
 
@@ -279,6 +336,20 @@ export class SenangWebsZero {
     return this.isFinishedMethod(group);
   }
 
+  /** Permanently tear down an instance so it can be garbage-collected. */
+  destroy(): void {
+    this._cancelInFlightRender();
+    this._objectSteps = [];
+    this.backendSteps = [];
+    this.tourSteps = [];
+    this._onBeforeStepChange = null;
+    this._onAfterStepChange = null;
+    this._onBeforeExit = null;
+    this._onAfterExit = null;
+    this._onFinish = null;
+    this._previousFocus = null;
+  }
+
   // -- Private methods --
 
   private _resolveSteps(group?: string): void {
@@ -295,7 +366,8 @@ export class SenangWebsZero {
     this.tourSteps = this.backendSteps.map(s => ({
       content: s.content,
       title: s.title,
-      target: s.target as HTMLElement | undefined,
+      // Keep the raw declared target (string or element); resolved at render.
+      target: s.target as SWZStep['target'],
       order: s.order,
       group: s.group,
       margin: s.margin,
@@ -305,22 +377,22 @@ export class SenangWebsZero {
   }
 
   private _mount(): void {
+    this._transitioning = true;
+
     // Create backdrop
-    this.backdrop = createBackdrop(this.options);
+    this._backdropSession = createBackdrop(this.options);
+    this.backdrop = this._backdropSession.el;
     document.body.appendChild(this.backdrop);
 
     // Create dialog
-    this.dialog = createDialog(this.options);
+    this._dialogSession = createDialog(this.options);
+    this.dialog = this._dialogSession.el;
     document.body.appendChild(this.dialog);
 
     // Wire up dialog button handlers
-    const { prevBtn, nextBtn, closeBtn } = getDialogButtons();
-    if (prevBtn) {
-      prevBtn.onclick = () => this.prevStep();
-    }
-    if (nextBtn) {
-      nextBtn.onclick = () => this.nextStep();
-    }
+    const { prevBtn, nextBtn, closeBtn } = this._dialogSession;
+    prevBtn.onclick = () => this.prevStep();
+    nextBtn.onclick = () => this.nextStep();
     if (closeBtn) {
       closeBtn.onclick = () => this.exit();
     }
@@ -344,10 +416,14 @@ export class SenangWebsZero {
         } else if (e.key === 'ArrowLeft' || e.key === 'ArrowUp') {
           e.preventDefault();
           this.prevStep();
-        } else if (e.key === 'Escape' && this.options.exitOnEscape) {
-          e.preventDefault();
-          this.exit();
         }
+      }
+      // Escape is respected independently of keyboardControls so users can
+      // always bail out when exitOnEscape is enabled.
+      if (e.key === 'Escape' && this.options.exitOnEscape) {
+        e.preventDefault();
+        this.exit();
+        return;
       }
       // Tab trapping stays active for the dialog even when arrow shortcuts are disabled.
       if (e.key === 'Tab') {
@@ -372,8 +448,8 @@ export class SenangWebsZero {
       this.backdrop.addEventListener('click', this._backdropClickHandler);
     }
 
-    // Resize/resposition handler
-    setupBackdropResizeHandler(() => this._onResize());
+    // Window resize + scroll listeners (ownership held by this instance)
+    setupViewportHandlers(this, () => this._onViewportChange());
   }
 
   private _teardown(): void {
@@ -391,72 +467,86 @@ export class SenangWebsZero {
       this._backdropClickHandler = null;
     }
 
-    teardownBackdropResizeHandler();
+    teardownViewportHandlers(this);
 
     if (this._resizeDebounceTimer) {
       clearTimeout(this._resizeDebounceTimer);
       this._resizeDebounceTimer = null;
     }
+    this._cancelScheduledScrollRaf();
 
     // Remove DOM
-    removeDialog();
-    removeBackdrop();
+    removeDialog(this._dialogSession);
+    removeBackdrop(this._backdropSession);
 
     this._restoreFocus();
   }
 
+  private _cancelInFlightRender(): void {
+    // Drop pending debounce/raf work; the running transition's effects against
+    // a torn-down dialog are no-ops, so a quick re-exit call is safe.
+    this._transitioning = false;
+    this.exit();
+  }
+
   private async _goToStep(index: number): Promise<void> {
-    if (!this.isVisible) return;
+    if (!this.isVisible || this._transitioning) return;
     if (index < 0 || index >= this.backendSteps.length) return;
 
-    // Fire onBeforeStepChange (gating)
-    if (this._onBeforeStepChange) {
-      try {
-        const result = await this._onBeforeStepChange();
-        if (result === false) {
-          logDebug('Step change cancelled by onBeforeStepChange handler.', this.options.debug ?? true);
+    this._transitioning = true;
+    try {
+      // Fire onBeforeStepChange (gating)
+      if (this._onBeforeStepChange) {
+        try {
+          const result = await this._onBeforeStepChange();
+          if (result === false) {
+            logDebug('Step change cancelled by onBeforeStepChange handler.', this.options.debug ?? true);
+            return;
+          }
+        } catch {
+          logDebug('Step change cancelled by onBeforeStepChange rejection.', this.options.debug ?? true);
           return;
         }
-      } catch {
-        logDebug('Step change cancelled by onBeforeStepChange rejection.', this.options.debug ?? true);
-        return;
       }
-    }
 
-    this.activeStep = index;
+      this.activeStep = index;
 
-    // Persist step if rememberStep
-    if (this.options.rememberStep) {
-      setStoredStep(this._currentGroup, index);
-    }
+      // Persist step if rememberStep
+      if (this.options.rememberStep) {
+        setStoredStep(this._currentGroup, index);
+      }
 
-    await this._renderActiveStep(true);
+      await this._renderActiveStep(true);
 
-    // Fire onAfterStepChange
-    if (this._onAfterStepChange) {
-      try {
-        await this._onAfterStepChange();
-      } catch { /* not gating */ }
+      // Fire onAfterStepChange
+      if (this._onAfterStepChange) {
+        try {
+          await this._onAfterStepChange();
+        } catch { /* not gating */ }
+      }
+    } finally {
+      this._transitioning = false;
     }
   }
 
   private async _renderActiveStep(animate: boolean): Promise<void> {
     const step = this.backendSteps[this.activeStep];
-    if (!step) return;
+    if (!step || !this.isVisible) return;
 
     this._setAnimationClasses(animate);
 
-    // Resolve target inline for safety
-    step.target = resolveStepTarget(step, this.activeStep, this.options.debug ?? true);
+    // Lazy resolution for scroll; the declared target is never mutated so
+    // string selectors re-resolve on every render (late-mounted targets work).
+    const resolvedTarget = resolveStepTarget(step, this.activeStep, this.options.debug ?? true);
 
     // Scroll into view
-    await scrollTargetIntoView(step, this.options);
+    await scrollTargetIntoView({ ...step, target: resolvedTarget }, this.options);
 
     // Update backdrop
-    updateBackdrop(step, this.options);
+    updateBackdrop(this._backdropSession, step, this.options);
 
     // Update dialog content
-    updateDialogContent(step, this.backendSteps, this.activeStep, this.options);
+    updateDialogContent(this._dialogSession, step, this.backendSteps, this.activeStep, this.options);
 
     // On first render, remove animate classes so appearance is instant
     if (!animate) {
@@ -487,12 +577,12 @@ export class SenangWebsZero {
     // Wait a tick for layout to settle
     await new Promise(r => requestAnimationFrame(() => requestAnimationFrame(r)));
 
-    const result = positionDialog(step, this.options);
-    applyPosition(result);
+    const result = positionDialog(this._dialogSession, step, this.options);
+    applyPosition(this._dialogSession, result);
   }
 
   private async _finish(): Promise<void> {
-    if (!this.isVisible) return;
+    if (!this.isVisible || this._transitioning) return;
 
     // Fire onFinish (gating)
     if (this._onFinish) {
@@ -508,56 +598,95 @@ export class SenangWebsZero {
       }
     }
 
-    // Record completion
-    if (this.options.completeOnFinish) {
-      setFinished(this._currentGroup);
-      // Clear stored step on completion
-      deleteStoredStep(this._currentGroup);
+    this._transitioning = true;
+    try {
+      // Record completion
+      if (this.options.completeOnFinish) {
+        this._recordCompletion(this._currentGroup);
+      }
+
+      // Teardown
+      this._teardown();
+      this.isVisible = false;
+
+      logDebug('Tour finished.', this.options.debug ?? true);
+    } finally {
+      this._transitioning = false;
     }
+  }
 
-    // Teardown
-    this._teardown();
-    this.isVisible = false;
-
-    logDebug('Tour finished.', this.options.debug ?? true);
+  private _recordCompletion(group: string): void {
+    if (this.options.completeOnFinish) {
+      setFinished(group);
+      // Clear stored step on completion
+      deleteStoredStep(group);
+      logDebug(`Completion recorded for group "${group}".`, this.options.debug ?? true);
+    } else {
+      logDebug('completeOnFinish is false; no persistence recorded.', this.options.debug ?? true);
+    }
   }
 
   private _trapTab(e: KeyboardEvent): void {
-    if (!this.dialog) return;
-    const focusable = this.dialog.querySelectorAll<HTMLElement>(
-      'button:not([disabled]), [tabindex]:not([tabindex="-1"])',
-    );
-    if (focusable.length === 0) return;
+    const dialog = this.dialog;
+    if (!dialog) return;
+    const focusable = Array.from(
+      dialog.querySelectorAll<HTMLElement>(FOCUSABLE_SELECTOR),
+    ).filter(el => el.offsetParent !== null || el === document.activeElement);
+
+    if (focusable.length === 0) {
+      // Keep focus on the dialog shell when nothing inside is focusable.
+      e.preventDefault();
+      dialog.focus();
+      return;
+    }
 
     const first = focusable[0];
     const last = focusable[focusable.length - 1];
 
     if (e.shiftKey) {
-      if (document.activeElement === first) {
+      if (document.activeElement === first || document.activeElement === dialog) {
         e.preventDefault();
         last.focus();
       }
     } else {
-      if (document.activeElement === last) {
+      if (document.activeElement === last || document.activeElement === dialog) {
         e.preventDefault();
         first.focus();
       }
     }
   }
 
-  private _onResize(): void {
+  private _onViewportChange(): void {
+    if (!this.isVisible) return;
+
+    // Scroll: reposition on the next frame so the cutout tracks its target.
+    if (this._scrollRafId !== null) {
+      cancelAnimationFrame(this._scrollRafId);
+    }
+    this._scrollRafId = requestAnimationFrame(() => {
+      this._scrollRafId = null;
+      if (!this.isVisible) return;
+      const step = this.backendSteps[this.activeStep];
+      if (step) {
+        updateBackdrop(this._backdropSession, step, this.options);
+        this._positionDialog(step);
+      }
+    });
+
+    // Resize: debounce heavier relayout work.
     if (this._resizeDebounceTimer) {
       clearTimeout(this._resizeDebounceTimer);
     }
     this._resizeDebounceTimer = setTimeout(() => {
-      if (!this.isVisible) return;
-      const step = this.backendSteps[this.activeStep];
-      if (step) {
-        step.target = resolveStepTarget(step, this.activeStep, this.options.debug ?? true);
-        updateBackdrop(step, this.options);
-        this._positionDialog(step);
-      }
+      this._resizeDebounceTimer = null;
     }, 100);
+  }
+
+  private _cancelScheduledScrollRaf(): void {
+    if (this._scrollRafId !== null) {
+      cancelAnimationFrame(this._scrollRafId);
+      this._scrollRafId = null;
+    }
   }
 
   private _replaceObjectSteps(steps: unknown): void {
@@ -582,7 +711,7 @@ export class SenangWebsZero {
         ...step,
         content: publicStep.content,
         title: publicStep.title,
-        target: resolveStepTarget(publicStep, index, this.options.debug ?? true),
+        target: publicStep.target,
         order: publicStep.order,
         group: publicStep.group,
         margin: publicStep.margin,

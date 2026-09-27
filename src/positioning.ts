@@ -1,10 +1,11 @@
 import type { InternalStep, SWZOptions } from './types';
-import { getDialogElement, showDialogArrow, getDialogArrow } from './dialog';
+import type { DialogSession } from './dialog';
+import type { BackdropSession } from './backdrop';
+import { showDialogArrow } from './dialog';
 import { getElementRect } from './utils';
 
 // Minimal floating-positioning engine that implements placement/flip/shift/offset
-// without requiring @floating-ui/dom (keeps bundle zero-dependency if desired).
-// For production, swap this with @floating-ui/dom for more robust collision detection.
+// without requiring @floating-ui/dom (keeps bundle zero-dependency).
 
 export interface PositionResult {
   x: number;
@@ -18,17 +19,28 @@ export interface PositionResult {
 // Placement priority order for auto mode
 const PLACEMENT_ORDER: Array<'top' | 'bottom' | 'left' | 'right'> = ['bottom', 'top', 'right', 'left'];
 
+function queryStepTarget(
+  target: InternalStep['target'],
+): Element | undefined {
+  if (!target) return undefined;
+  if (typeof target === 'string') {
+    const el = document.querySelector(target);
+    return el ?? undefined;
+  }
+  return target;
+}
+
 export function positionDialog(
+  session: DialogSession,
   step: InternalStep,
   options: SWZOptions,
 ): PositionResult {
-  const dialog = getDialogElement();
-  if (!dialog) return { x: 0, y: 0, placement: 'center' };
+  const dialog = session.el;
 
-  const target = step.target;
-  if (!target) {
+  const el = queryStepTarget(step.target);
+  if (!el) {
     // Centered
-    showDialogArrow(false);
+    showDialogArrow(session, false);
     const dw = dialog.offsetWidth || 300;
     const dh = dialog.offsetHeight || 200;
     return {
@@ -38,9 +50,9 @@ export function positionDialog(
     };
   }
 
-  showDialogArrow(true);
+  showDialogArrow(session, true);
 
-  const targetRect = getElementRect(target);
+  const targetRect = getElementRect(el);
   const pad = options.targetPadding ?? 30;
 
   const anchorRect = {
@@ -255,22 +267,20 @@ function clamp(value: number, min: number, max: number): number {
   return Math.max(min, Math.min(value, max));
 }
 
-export function applyPosition(result: PositionResult): void {
-  const dialog = getDialogElement();
-  if (!dialog) return;
+export function applyPosition(dialogSession: DialogSession, result: PositionResult): void {
+  const dialog = dialogSession.el;
 
   dialog.style.left = `${result.x}px`;
   dialog.style.top = `${result.y}px`;
+  dialog.style.visibility = 'visible';
 
-  const arrow = getDialogArrow();
-  if (arrow) {
-    if (result.arrowX !== undefined && result.arrowY !== undefined && result.arrowRotation !== undefined) {
-      arrow.style.display = '';
-      arrow.style.left = `${result.arrowX}px`;
-      arrow.style.top = `${result.arrowY}px`;
-      arrow.style.transform = `rotate(${result.arrowRotation}deg)`;
-    } else {
-      arrow.style.display = 'none';
-    }
+  const arrow = dialogSession.arrow;
+  if (result.arrowX !== undefined && result.arrowY !== undefined && result.arrowRotation !== undefined) {
+    arrow.style.display = '';
+    arrow.style.left = `${result.arrowX}px`;
+    arrow.style.top = `${result.arrowY}px`;
+    arrow.style.transform = `rotate(${result.arrowRotation}deg)`;
+  } else {
+    arrow.style.display = 'none';
   }
 }

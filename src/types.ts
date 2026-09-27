@@ -84,7 +84,8 @@ export const DEFAULTS: SWZOptions = {
 export interface InternalStep {
   content: string;
   title?: string;
-  target?: Element | HTMLElement | HTMLInputElement;
+  /** Raw declared target; string selectors are resolved lazily at render time. */
+  target?: Element | HTMLElement | HTMLInputElement | string;
   order?: number;
   group?: string;
   margin?: number;

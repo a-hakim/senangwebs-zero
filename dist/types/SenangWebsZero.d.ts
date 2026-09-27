@@ -17,10 +17,14 @@ export declare class SenangWebsZero {
     private _onFinish;
     private _currentGroup;
     private _resizeDebounceTimer;
+    private _scrollRafId;
     private _keyHandler;
     private _backdropClickHandler;
     private _dotClickHandler;
     private _previousFocus;
+    private _dialogSession;
+    private _backdropSession;
+    private _transitioning;
     constructor(userOptions?: SWZOptions);
     start(group?: string): Promise<void>;
     visitStep(step: 'next' | 'prev' | number): Promise<void>;
@@ -42,15 +46,20 @@ export declare class SenangWebsZero {
     onFinish(fn: LifecycleHandler): void;
     finish(exit?: boolean, group?: string): Promise<void>;
     isFinished(group?: string): boolean;
+    /** Permanently tear down an instance so it can be garbage-collected. */
+    destroy(): void;
     private _resolveSteps;
     private _mount;
     private _teardown;
+    private _cancelInFlightRender;
     private _goToStep;
     private _renderActiveStep;
     private _positionDialog;
     private _finish;
+    private _recordCompletion;
     private _trapTab;
-    private _onResize;
+    private _onViewportChange;
+    private _cancelScheduledScrollRaf;
     private _replaceObjectSteps;
     private _syncPublicStepsToBackend;
     private _setAnimationClasses;

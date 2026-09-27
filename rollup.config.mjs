@@ -47,9 +47,6 @@ export default [
       name: 'swz',
       banner,
       sourcemap: true,
-      globals: {
-        '@floating-ui/dom': 'FloatingUIDOM',
-      },
     },
     plugins: [
       typescript({ tsconfig: './tsconfig.json' }),

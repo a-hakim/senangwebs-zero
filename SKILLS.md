@@ -1,7 +1,7 @@
 ---
 name: senangwebs-zero
 description: Framework-agnostic vanilla TypeScript user onboarding tour library with backdrop highlights, step dialogs, and collision-aware positioning.
-version: 0.9.2
+version: 0.9.3
 package: senangwebs-zero
 ---
 
@@ -11,8 +11,8 @@ package: senangwebs-zero
 
 - **Purpose**: Product tours / onboarding walkthroughs with backdrop cutouts and step dialogs
 - **Entry**: ESM, CJS, UMD outputs + TypeScript declarations
-- **Dependencies**: `@floating-ui/dom`
-- **Scripts**: `npm run build` (js + css), `npm run build:js` (rollup), `npm run build:css` (sass), `npm run dev` (rollup watch), `npm run lint` (tsc --noEmit), `npm run prepublishOnly`
+- **Dependencies**: none at runtime (zero-dependency hand-rolled positioning engine)
+- **Scripts**: `npm run build` (js + css), `npm run build:js` (rollup), `npm run build:css` (sass), `npm run dev` (rollup watch), `npm run lint` (tsc --noEmit), `npm test` (vitest), `npm run prepublishOnly`
 - **Types**: `SWZOptions`, `SWZStep`, and `SWZPlacement`
 
 ## Workflow
@@ -83,15 +83,16 @@ tour.setOptions({...})
 tour.refresh()              // re-scan DOM for data attributes
 tour.refreshDialog()        // reposition dialog
 tour.updatePositions()      // recalculate backdrop cutout
+tour.destroy()              // drop state/hooks/timers for GC
 ```
 
 ### Lifecycle Hooks (all support async/Promise; reject = cancel action)
 ```
-onBeforeStepChange(stepIndex, direction)
-onAfterStepChange(stepIndex, direction)
-onBeforeExit()
+onBeforeStepChange()          // called before a transition; no args
+onAfterStepChange()           // called after the new step renders; no args
+onBeforeExit()                // exit is cancelled when this rejects/returns false
 onAfterExit()
-onFinish()
+onFinish()                    // Finish button, or finishTour(); reject = cancel
 ```
 
 ### Properties
@@ -100,7 +101,7 @@ onFinish()
 ## Focus Areas
 
 - Backdrop with animated cutout highlights around target elements
-- Collision-aware dialog positioning via Floating UI (`@floating-ui/dom`)
+- Zero-dependency collision-aware dialog positioning (custom placement/flip/shift engine)
 - Per-step placement override via object `placement` or `data-swz-placement`
 - Step progress: dots and progress bar
 - Group-based tour targeting: multiple tours on same page, isolated
@@ -114,6 +115,8 @@ onFinish()
 
 - Preserve backward compatibility for all method signatures, option names, and hook names
 - Lifecycle hook rejection must cleanly cancel the action
+- Step-change transitions are guarded: concurrent navigation calls are dropped while one is in flight
+- String step targets resolve lazily on every render — never mutate `step.target`
 - Test backdrop cutout animation and dialog positioning at edge of viewport
 - Verify focus trapping with Tab/Shift+Tab
 - TypeScript: run `npm run lint` (tsc --noEmit) after type changes
@@ -123,6 +126,7 @@ onFinish()
 
 ```bash
 npm run lint       # TypeScript type check
+npm test           # vitest (jsdom)
 npm run build      # full build (JS + CSS)
 npm run prepublishOnly
 ```

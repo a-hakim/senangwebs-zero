@@ -1,34 +1,30 @@
 import type { InternalStep, SWZOptions } from './types';
 
-let dialogEl: HTMLElement | null = null;
-let titleEl: HTMLElement | null = null;
-let bodyEl: HTMLElement | null = null;
-let footerEl: HTMLElement | null = null;
-let prevBtn: HTMLButtonElement | null = null;
-let nextBtn: HTMLButtonElement | null = null;
-let closeBtn: HTMLButtonElement | null = null;
-let dotsEl: HTMLElement | null = null;
-let progressEl: HTMLElement | null = null;
-let progressBarEl: HTMLElement | null = null;
-let arrowEl: HTMLElement | null = null;
-let headerEl: HTMLElement | null = null;
-
-export function getDialogElement(): HTMLElement {
-  return dialogEl!;
+export interface DialogSession {
+  el: HTMLElement;
+  header: HTMLElement;
+  title: HTMLElement;
+  body: HTMLElement;
+  footer: HTMLElement;
+  prevBtn: HTMLButtonElement;
+  nextBtn: HTMLButtonElement;
+  closeBtn: HTMLButtonElement | null;
+  dots: HTMLElement;
+  progress: HTMLElement;
+  progressBar: HTMLElement | null;
+  arrow: HTMLElement;
 }
 
-export function getDialogElements() {
-  return { dialogEl, titleEl, bodyEl, footerEl, prevBtn, nextBtn, closeBtn, dotsEl, progressEl, progressBarEl, arrowEl, headerEl };
-}
-
-export function createDialog(options: SWZOptions): HTMLElement {
+export function createDialog(options: SWZOptions): DialogSession {
   const el = document.createElement('div');
   el.className = ['swz-dialog', options.dialogClass || ''].filter(Boolean).join(' ');
   el.setAttribute('role', 'dialog');
   el.setAttribute('aria-modal', 'true');
   el.setAttribute('tabindex', '-1');
+  // Hidden until the first position pass so the dialog never flashes at (0,0)
   el.style.cssText = `
-    z-index: ${options.dialogZ ?? 999};
+    visibility: hidden;
+    z-index: ${Math.max(0, options.dialogZ ?? 999)};
     max-width: ${options.dialogMaxWidth ?? 340}px;
     ${options.dialogWidth ? `width: ${options.dialogWidth}px;` : ''}
   `;
@@ -36,13 +32,12 @@ export function createDialog(options: SWZOptions): HTMLElement {
   // Header
   const header = document.createElement('div');
   header.className = 'swz-dialog-header';
-  headerEl = header;
 
   const title = document.createElement('h3');
   title.className = 'swz-dialog-title';
-  titleEl = title;
   header.appendChild(title);
 
+  let closeBtn: HTMLButtonElement | null = null;
   if (options.closeButton) {
     const close = document.createElement('button');
     close.className = 'swz-dialog-close';
@@ -54,6 +49,7 @@ export function createDialog(options: SWZOptions): HTMLElement {
   el.appendChild(header);
 
   // Progress bar
+  let progressBar: HTMLElement | null = null;
   if (options.progressBar) {
     const bar = document.createElement('div');
     bar.className = 'swz-progressbar';
@@ -61,25 +57,22 @@ export function createDialog(options: SWZOptions): HTMLElement {
       background: ${options.progressBar};
       transform: scaleX(0);
     `;
-    progressBarEl = bar;
+    progressBar = bar;
     el.appendChild(bar);
   }
 
   // Body
   const body = document.createElement('div');
   body.className = 'swz-dialog-body';
-  bodyEl = body;
   el.appendChild(body);
 
   // Footer
   const footer = document.createElement('div');
   footer.className = 'swz-dialog-footer';
-  footerEl = footer;
 
   // Prev button
   const prev = document.createElement('button');
   prev.className = 'swz-prev';
-  prevBtn = prev;
   footer.appendChild(prev);
 
   // Spacer
@@ -90,39 +83,35 @@ export function createDialog(options: SWZOptions): HTMLElement {
   // Progress text
   const progress = document.createElement('span');
   progress.className = 'swz-progress';
-  progressEl = progress;
   footer.appendChild(progress);
 
   // Next / Finish button
   const next = document.createElement('button');
   next.className = 'swz-next';
-  nextBtn = next;
   footer.appendChild(next);
 
   // Dots container
   const dots = document.createElement('div');
   dots.className = 'swz-dots';
-  dotsEl = dots;
 
   el.appendChild(footer);
 
   // Arrow
   const arrow = document.createElement('div');
   arrow.className = 'swz-arrow';
-  arrowEl = arrow;
   el.appendChild(arrow);
 
-  dialogEl = el;
-  return el;
+  return { el, header, title, body, footer, prevBtn: prev, nextBtn: next, closeBtn, dots, progress, progressBar, arrow };
 }
 
 export function updateDialogContent(
+  session: DialogSession,
   step: InternalStep,
   steps: InternalStep[],
   activeStep: number,
   options: SWZOptions,
 ): void {
-  if (!dialogEl || !titleEl || !bodyEl || !footerEl) return;
+  const { el, title, body, footer, prevBtn, nextBtn, dots, progress, progressBar } = session;
 
   const total = steps.length;
   const isFirst = activeStep === 0;
@@ -130,49 +119,47 @@ export function updateDialogContent(
 
   // Title
   if (step.title) {
-    titleEl.textContent = step.title;
-    titleEl.style.display = '';
-    dialogEl.setAttribute('aria-label', step.title);
+    title.textContent = step.title;
+    title.style.display = '';
+    el.setAttribute('aria-label', step.title);
   } else {
-    titleEl.style.display = 'none';
-    dialogEl.setAttribute('aria-label', 'Tour step');
+    title.style.display = 'none';
+    el.setAttribute('aria-label', 'Tour step');
   }
 
   // Body content
-  bodyEl.innerHTML = step.content;
+  session.body.innerHTML = step.content;
 
   // Progress bar
-  if (progressBarEl) {
-    progressBarEl.style.transform = `scaleX(${(activeStep + 1) / total})`;
+  if (progressBar) {
+    progressBar.style.transform = `scaleX(${(activeStep + 1) / total})`;
   }
 
   // Prev button
-  if (prevBtn) {
-    prevBtn.textContent = options.prevLabel || 'Back';
-    const showPrev = (options.showButtons !== false) && !options.hidePrev;
-    prevBtn.style.display = (showPrev && !isFirst) ? '' : 'none';
-  }
+  prevBtn.textContent = options.prevLabel || 'Back';
+  const showPrev = (options.showButtons !== false) && !options.hidePrev;
+  prevBtn.style.display = (showPrev && !isFirst) ? '' : 'none';
 
   // Next button
-  if (nextBtn) {
-    nextBtn.textContent = isLast ? (options.finishLabel || 'Finish') : (options.nextLabel || 'Next');
-    const showNext = (options.showButtons !== false) && !options.hideNext;
-    nextBtn.style.display = showNext ? '' : 'none';
-  }
+  nextBtn.textContent = isLast ? (options.finishLabel || 'Finish') : (options.nextLabel || 'Next');
+  const showNext = (options.showButtons !== false) && !options.hideNext;
+  nextBtn.style.display = showNext ? '' : 'none';
 
   // Progress text
-  if (progressEl) {
-    progressEl.style.display = options.showStepProgress ? '' : 'none';
-    progressEl.textContent = `${activeStep + 1} / ${total}`;
-  }
+  progress.style.display = options.showStepProgress ? '' : 'none';
+  progress.textContent = `${activeStep + 1} / ${total}`;
 
   // Dots
-  updateDots(steps, activeStep, options);
+  updateDots(session, steps, activeStep, options);
+
+  // Touch unused destructures to keep intent explicit
+  void dots;
 }
 
-function updateDots(steps: InternalStep[], activeStep: number, options: SWZOptions): void {
-  const dots = dotsEl;
-  if (!dots) return;
+function updateDots(session: DialogSession, steps: InternalStep[], activeStep: number, options: SWZOptions): void {
+  const dots = session.dots;
+  const body = session.body;
+  const footer = session.footer;
 
   const showDots = options.showStepDots !== false;
   dots.innerHTML = '';
@@ -203,52 +190,30 @@ function updateDots(steps: InternalStep[], activeStep: number, options: SWZOptio
 
   // Place dots in correct location
   const placement = options.stepDotsPlacement || 'footer';
-  if (placement === 'body' && bodyEl) {
-    if (dots.parentNode !== bodyEl) {
-      bodyEl.appendChild(dots);
+  if (placement === 'body') {
+    if (dots.parentNode !== body) {
+      body.appendChild(dots);
     }
     dots.style.paddingTop = '12px';
-  } else if (footerEl) {
-    if (dots.parentNode !== footerEl) {
-      const spacer = footerEl.querySelector('[style*="flex: 1"]');
+  } else {
+    if (dots.parentNode !== footer) {
+      const spacer = footer.querySelector('[style*="flex: 1"]');
       if (spacer) {
-        footerEl.insertBefore(dots, spacer);
+        footer.insertBefore(dots, spacer);
       } else {
-        footerEl.appendChild(dots);
+        footer.appendChild(dots);
       }
     }
     dots.style.paddingTop = '0';
   }
 }
 
-export function showDialogArrow(visible: boolean): void {
-  if (arrowEl) {
-    arrowEl.style.display = visible ? '' : 'none';
+export function showDialogArrow(session: DialogSession, visible: boolean): void {
+  session.arrow.style.display = visible ? '' : 'none';
+}
+
+export function removeDialog(session: DialogSession): void {
+  if (session.el.parentNode) {
+    session.el.parentNode.removeChild(session.el);
   }
-}
-
-export function getDialogArrow(): HTMLElement | null {
-  return arrowEl;
-}
-
-export function removeDialog(): void {
-  if (dialogEl?.parentNode) {
-    dialogEl.parentNode.removeChild(dialogEl);
-  }
-  dialogEl = null;
-  titleEl = null;
-  bodyEl = null;
-  footerEl = null;
-  prevBtn = null;
-  nextBtn = null;
-  closeBtn = null;
-  dotsEl = null;
-  progressEl = null;
-  progressBarEl = null;
-  arrowEl = null;
-  headerEl = null;
-}
-
-export function getDialogButtons() {
-  return { prevBtn, nextBtn, closeBtn };
 }

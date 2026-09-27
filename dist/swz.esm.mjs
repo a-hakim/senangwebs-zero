@@ -1,4 +1,4 @@
-/*! SenangWebs Zero v0.9.2 | MIT License | https://github.com/a-hakim/senangwebs-zero */
+/*! SenangWebs Zero v0.9.3 | MIT License | https://github.com/a-hakim/senangwebs-zero */
 const DEFAULTS = {
     steps: [],
     autoScroll: true,
@@ -109,10 +109,12 @@ function objectStepsToInternal(steps, debug) {
             console.warn('[swz] addSteps() expects an array of SWZStep objects.');
         return [];
     }
+    // Target is kept as declared (string or element) and resolved lazily at
+    // render time, so steps declared before their elements exist still work.
     return steps.map((s, i) => ({
         content: s.content,
         title: s.title,
-        target: resolveStepTarget(s, i, debug),
+        target: s.target,
         order: s.order,
         group: s.group,
         margin: s.margin,
@@ -222,11 +224,17 @@ function warnDebug(message, debug) {
     }
 }
 
-let backdropEl = null;
-let cutoutEl = null;
-let backdropPieces = [];
-let resizeHandler = null;
-let scrollHandler = null;
+let handlers = null;
+let handlerOwner = null;
+function queryStepTarget$1(target) {
+    if (!target)
+        return undefined;
+    if (typeof target === 'string') {
+        const el = document.querySelector(target);
+        return el ?? undefined;
+    }
+    return target;
+}
 function createBackdrop(options) {
     const el = document.createElement('div');
     el.className = ['swz-backdrop', options.backdropClass || '']
@@ -235,11 +243,11 @@ function createBackdrop(options) {
     el.style.cssText = `
     position: fixed;
     top: 0; left: 0; width: 100vw; height: 100vh;
-    z-index: ${(options.dialogZ ?? 999) - 1};
+    z-index: ${Math.max(0, (options.dialogZ ?? 999) - 1)};
     background: ${options.backdropColor};
     pointer-events: ${options.exitOnClickOutside ? 'auto' : 'none'};
   `;
-    backdropPieces = ['top', 'right', 'bottom', 'left'].map((name) => {
+    const pieces = ['top', 'right', 'bottom', 'left'].map((name) => {
         const piece = document.createElement('div');
         piece.className = `swz-backdrop-piece swz-backdrop-piece-${name}`;
         piece.style.cssText = `
@@ -258,17 +266,13 @@ function createBackdrop(options) {
     pointer-events: ${options.propagateEvents ? 'none' : 'auto'};
   `;
     el.appendChild(cutout);
-    backdropEl = el;
-    cutoutEl = cutout;
-    return el;
+    return { el, cutout, pieces };
 }
-function updateBackdrop(step, options, repositionFn) {
-    const bd = backdropEl;
-    const co = cutoutEl;
-    if (!bd || !co)
-        return;
-    const target = step.target;
-    if (!target) {
+function updateBackdrop(session, step, options) {
+    const { el: bd, cutout: co, pieces: backdropPieces } = session;
+    step.target;
+    const el = queryStepTarget$1(step.target);
+    if (!el) {
         // Centered: no cut-out, full dim
         co.style.display = 'none';
         bd.style.background = options.backdropColor || 'rgba(20,20,21,0.84)';
@@ -286,7 +290,7 @@ function updateBackdrop(step, options, repositionFn) {
         piece.style.background = options.backdropColor || 'rgba(20,20,21,0.84)';
         piece.style.pointerEvents = 'auto';
     });
-    const rect = getElementRect(target);
+    const rect = getElementRect(el);
     const pad = options.targetPadding ?? 30;
     const top = rect.top - pad;
     const left = rect.left - pad;
@@ -298,35 +302,36 @@ function updateBackdrop(step, options, repositionFn) {
     co.style.height = `${height}px`;
     // Toggle pointer-events for propagateEvents
     co.style.pointerEvents = options.propagateEvents ? 'none' : 'auto';
-    updateBackdropPieces(left, top, left + width, top + height);
+    updateBackdropPieces(backdropPieces, left, top, left + width, top + height);
 }
-function removeBackdrop() {
-    if (backdropEl?.parentNode) {
-        backdropEl.parentNode.removeChild(backdropEl);
+function removeBackdrop(session) {
+    if (session.el.parentNode) {
+        session.el.parentNode.removeChild(session.el);
     }
-    backdropEl = null;
-    cutoutEl = null;
-    backdropPieces = [];
 }
-function setupBackdropResizeHandler(callback) {
-    if (resizeHandler)
+function setupViewportHandlers(owner, callback) {
+    // One shared set of window listeners; ownership transfers to the latest tour.
+    teardownViewportHandlers();
+    handlers = {
+        resize: () => callback(),
+        scroll: () => callback(),
+    };
+    handlerOwner = owner;
+    window.addEventListener('resize', handlers.resize, { passive: true });
+    window.addEventListener('scroll', handlers.scroll, { passive: true });
+}
+function teardownViewportHandlers(owner) {
+    if (!handlers)
         return;
-    resizeHandler = () => callback();
-    scrollHandler = () => callback();
-    window.addEventListener('resize', resizeHandler, { passive: true });
-    window.addEventListener('scroll', scrollHandler, { passive: true });
+    // Only the owning instance may release the shared listeners.
+    if (owner !== undefined && handlerOwner !== null && handlerOwner !== owner)
+        return;
+    window.removeEventListener('resize', handlers.resize);
+    window.removeEventListener('scroll', handlers.scroll);
+    handlers = null;
+    handlerOwner = null;
 }
-function teardownBackdropResizeHandler() {
-    if (resizeHandler) {
-        window.removeEventListener('resize', resizeHandler);
-        resizeHandler = null;
-    }
-    if (scrollHandler) {
-        window.removeEventListener('scroll', scrollHandler);
-        scrollHandler = null;
-    }
-}
-function updateBackdropPieces(left, top, right, bottom) {
+function updateBackdropPieces(backdropPieces, left, top, right, bottom) {
     const viewportW = window.innerWidth;
     const viewportH = window.innerHeight;
     const cutLeft = clamp$1(left, 0, viewportW);
@@ -351,28 +356,16 @@ function clamp$1(value, min, max) {
     return Math.max(min, Math.min(value, max));
 }
 
-let dialogEl = null;
-let titleEl = null;
-let bodyEl = null;
-let footerEl = null;
-let prevBtn = null;
-let nextBtn = null;
-let closeBtn = null;
-let dotsEl = null;
-let progressEl = null;
-let progressBarEl = null;
-let arrowEl = null;
-function getDialogElement() {
-    return dialogEl;
-}
 function createDialog(options) {
     const el = document.createElement('div');
     el.className = ['swz-dialog', options.dialogClass || ''].filter(Boolean).join(' ');
     el.setAttribute('role', 'dialog');
     el.setAttribute('aria-modal', 'true');
     el.setAttribute('tabindex', '-1');
+    // Hidden until the first position pass so the dialog never flashes at (0,0)
     el.style.cssText = `
-    z-index: ${options.dialogZ ?? 999};
+    visibility: hidden;
+    z-index: ${Math.max(0, options.dialogZ ?? 999)};
     max-width: ${options.dialogMaxWidth ?? 340}px;
     ${options.dialogWidth ? `width: ${options.dialogWidth}px;` : ''}
   `;
@@ -381,8 +374,8 @@ function createDialog(options) {
     header.className = 'swz-dialog-header';
     const title = document.createElement('h3');
     title.className = 'swz-dialog-title';
-    titleEl = title;
     header.appendChild(title);
+    let closeBtn = null;
     if (options.closeButton) {
         const close = document.createElement('button');
         close.className = 'swz-dialog-close';
@@ -393,6 +386,7 @@ function createDialog(options) {
     }
     el.appendChild(header);
     // Progress bar
+    let progressBar = null;
     if (options.progressBar) {
         const bar = document.createElement('div');
         bar.className = 'swz-progressbar';
@@ -400,22 +394,19 @@ function createDialog(options) {
       background: ${options.progressBar};
       transform: scaleX(0);
     `;
-        progressBarEl = bar;
+        progressBar = bar;
         el.appendChild(bar);
     }
     // Body
     const body = document.createElement('div');
     body.className = 'swz-dialog-body';
-    bodyEl = body;
     el.appendChild(body);
     // Footer
     const footer = document.createElement('div');
     footer.className = 'swz-dialog-footer';
-    footerEl = footer;
     // Prev button
     const prev = document.createElement('button');
     prev.className = 'swz-prev';
-    prevBtn = prev;
     footer.appendChild(prev);
     // Spacer
     const spacer = document.createElement('div');
@@ -424,72 +415,60 @@ function createDialog(options) {
     // Progress text
     const progress = document.createElement('span');
     progress.className = 'swz-progress';
-    progressEl = progress;
     footer.appendChild(progress);
     // Next / Finish button
     const next = document.createElement('button');
     next.className = 'swz-next';
-    nextBtn = next;
     footer.appendChild(next);
     // Dots container
     const dots = document.createElement('div');
     dots.className = 'swz-dots';
-    dotsEl = dots;
     el.appendChild(footer);
     // Arrow
     const arrow = document.createElement('div');
     arrow.className = 'swz-arrow';
-    arrowEl = arrow;
     el.appendChild(arrow);
-    dialogEl = el;
-    return el;
+    return { el, header, title, body, footer, prevBtn: prev, nextBtn: next, closeBtn, dots, progress, progressBar, arrow };
 }
-function updateDialogContent(step, steps, activeStep, options) {
-    if (!dialogEl || !titleEl || !bodyEl || !footerEl)
-        return;
+function updateDialogContent(session, step, steps, activeStep, options) {
+    const { el, title, body, footer, prevBtn, nextBtn, dots, progress, progressBar } = session;
     const total = steps.length;
     const isFirst = activeStep === 0;
     const isLast = activeStep === total - 1;
     // Title
     if (step.title) {
-        titleEl.textContent = step.title;
-        titleEl.style.display = '';
-        dialogEl.setAttribute('aria-label', step.title);
+        title.textContent = step.title;
+        title.style.display = '';
+        el.setAttribute('aria-label', step.title);
     }
     else {
-        titleEl.style.display = 'none';
-        dialogEl.setAttribute('aria-label', 'Tour step');
+        title.style.display = 'none';
+        el.setAttribute('aria-label', 'Tour step');
     }
     // Body content
-    bodyEl.innerHTML = step.content;
+    session.body.innerHTML = step.content;
     // Progress bar
-    if (progressBarEl) {
-        progressBarEl.style.transform = `scaleX(${(activeStep + 1) / total})`;
+    if (progressBar) {
+        progressBar.style.transform = `scaleX(${(activeStep + 1) / total})`;
     }
     // Prev button
-    if (prevBtn) {
-        prevBtn.textContent = options.prevLabel || 'Back';
-        const showPrev = (options.showButtons !== false) && !options.hidePrev;
-        prevBtn.style.display = (showPrev && !isFirst) ? '' : 'none';
-    }
+    prevBtn.textContent = options.prevLabel || 'Back';
+    const showPrev = (options.showButtons !== false) && !options.hidePrev;
+    prevBtn.style.display = (showPrev && !isFirst) ? '' : 'none';
     // Next button
-    if (nextBtn) {
-        nextBtn.textContent = isLast ? (options.finishLabel || 'Finish') : (options.nextLabel || 'Next');
-        const showNext = (options.showButtons !== false) && !options.hideNext;
-        nextBtn.style.display = showNext ? '' : 'none';
-    }
+    nextBtn.textContent = isLast ? (options.finishLabel || 'Finish') : (options.nextLabel || 'Next');
+    const showNext = (options.showButtons !== false) && !options.hideNext;
+    nextBtn.style.display = showNext ? '' : 'none';
     // Progress text
-    if (progressEl) {
-        progressEl.style.display = options.showStepProgress ? '' : 'none';
-        progressEl.textContent = `${activeStep + 1} / ${total}`;
-    }
+    progress.style.display = options.showStepProgress ? '' : 'none';
+    progress.textContent = `${activeStep + 1} / ${total}`;
     // Dots
-    updateDots(steps, activeStep, options);
+    updateDots(session, steps, activeStep, options);
 }
-function updateDots(steps, activeStep, options) {
-    const dots = dotsEl;
-    if (!dots)
-        return;
+function updateDots(session, steps, activeStep, options) {
+    const dots = session.dots;
+    const body = session.body;
+    const footer = session.footer;
     const showDots = options.showStepDots !== false;
     dots.innerHTML = '';
     if (!showDots) {
@@ -516,63 +495,51 @@ function updateDots(steps, activeStep, options) {
     });
     // Place dots in correct location
     const placement = options.stepDotsPlacement || 'footer';
-    if (placement === 'body' && bodyEl) {
-        if (dots.parentNode !== bodyEl) {
-            bodyEl.appendChild(dots);
+    if (placement === 'body') {
+        if (dots.parentNode !== body) {
+            body.appendChild(dots);
         }
         dots.style.paddingTop = '12px';
     }
-    else if (footerEl) {
-        if (dots.parentNode !== footerEl) {
-            const spacer = footerEl.querySelector('[style*="flex: 1"]');
+    else {
+        if (dots.parentNode !== footer) {
+            const spacer = footer.querySelector('[style*="flex: 1"]');
             if (spacer) {
-                footerEl.insertBefore(dots, spacer);
+                footer.insertBefore(dots, spacer);
             }
             else {
-                footerEl.appendChild(dots);
+                footer.appendChild(dots);
             }
         }
         dots.style.paddingTop = '0';
     }
 }
-function showDialogArrow(visible) {
-    if (arrowEl) {
-        arrowEl.style.display = visible ? '' : 'none';
+function showDialogArrow(session, visible) {
+    session.arrow.style.display = visible ? '' : 'none';
+}
+function removeDialog(session) {
+    if (session.el.parentNode) {
+        session.el.parentNode.removeChild(session.el);
     }
-}
-function getDialogArrow() {
-    return arrowEl;
-}
-function removeDialog() {
-    if (dialogEl?.parentNode) {
-        dialogEl.parentNode.removeChild(dialogEl);
-    }
-    dialogEl = null;
-    titleEl = null;
-    bodyEl = null;
-    footerEl = null;
-    prevBtn = null;
-    nextBtn = null;
-    closeBtn = null;
-    dotsEl = null;
-    progressEl = null;
-    progressBarEl = null;
-    arrowEl = null;
-}
-function getDialogButtons() {
-    return { prevBtn, nextBtn, closeBtn };
 }
 
 // Placement priority order for auto mode
 const PLACEMENT_ORDER = ['bottom', 'top', 'right', 'left'];
-function positionDialog(step, options) {
-    const dialog = getDialogElement();
-    if (!dialog)
-        return { x: 0, y: 0, placement: 'center' };
-    const target = step.target;
-    if (!target) {
+function queryStepTarget(target) {
+    if (!target)
+        return undefined;
+    if (typeof target === 'string') {
+        const el = document.querySelector(target);
+        return el ?? undefined;
+    }
+    return target;
+}
+function positionDialog(session, step, options) {
+    const dialog = session.el;
+    const el = queryStepTarget(step.target);
+    if (!el) {
         // Centered
-        showDialogArrow(false);
+        showDialogArrow(session, false);
         const dw = dialog.offsetWidth || 300;
         const dh = dialog.offsetHeight || 200;
         return {
@@ -581,8 +548,8 @@ function positionDialog(step, options) {
             placement: 'center',
         };
     }
-    showDialogArrow(true);
-    const targetRect = getElementRect(target);
+    showDialogArrow(session, true);
+    const targetRect = getElementRect(el);
     const pad = options.targetPadding ?? 30;
     const anchorRect = {
         x: targetRect.left - pad,
@@ -734,23 +701,20 @@ function withArrow(result, placement, anchor, dw, dh) {
 function clamp(value, min, max) {
     return Math.max(min, Math.min(value, max));
 }
-function applyPosition(result) {
-    const dialog = getDialogElement();
-    if (!dialog)
-        return;
+function applyPosition(dialogSession, result) {
+    const dialog = dialogSession.el;
     dialog.style.left = `${result.x}px`;
     dialog.style.top = `${result.y}px`;
-    const arrow = getDialogArrow();
-    if (arrow) {
-        if (result.arrowX !== undefined && result.arrowY !== undefined && result.arrowRotation !== undefined) {
-            arrow.style.display = '';
-            arrow.style.left = `${result.arrowX}px`;
-            arrow.style.top = `${result.arrowY}px`;
-            arrow.style.transform = `rotate(${result.arrowRotation}deg)`;
-        }
-        else {
-            arrow.style.display = 'none';
-        }
+    dialog.style.visibility = 'visible';
+    const arrow = dialogSession.arrow;
+    if (result.arrowX !== undefined && result.arrowY !== undefined && result.arrowRotation !== undefined) {
+        arrow.style.display = '';
+        arrow.style.left = `${result.arrowX}px`;
+        arrow.style.top = `${result.arrowY}px`;
+        arrow.style.transform = `rotate(${result.arrowRotation}deg)`;
+    }
+    else {
+        arrow.style.display = 'none';
     }
 }
 
@@ -791,6 +755,14 @@ function scrollTargetIntoView(step, options) {
     });
 }
 
+const FOCUSABLE_SELECTOR = [
+    'button:not([disabled])',
+    'a[href]',
+    'input:not([disabled])',
+    'select:not([disabled])',
+    'textarea:not([disabled])',
+    '[tabindex]:not([tabindex="-1"])',
+].join(', ');
 class SenangWebsZero {
     constructor(userOptions) {
         // Public properties
@@ -809,10 +781,13 @@ class SenangWebsZero {
         // Internal state
         this._currentGroup = 'tour';
         this._resizeDebounceTimer = null;
+        this._scrollRafId = null;
         this._keyHandler = null;
         this._backdropClickHandler = null;
         this._dotClickHandler = null;
         this._previousFocus = null;
+        // Async transition guard: serializes step changes / finish / exit
+        this._transitioning = false;
         this.options = mergeOptions(userOptions);
         if (userOptions && 'steps' in userOptions) {
             this._replaceObjectSteps(userOptions.steps);
@@ -822,6 +797,10 @@ class SenangWebsZero {
     async start(group) {
         if (this.isVisible) {
             warnDebug('start() called while tour is already visible. Call exit() first.', this.options.debug ?? true);
+            return;
+        }
+        if (this._transitioning) {
+            warnDebug('start() skipped: another lifecycle action is in progress.', this.options.debug ?? true);
             return;
         }
         this._currentGroup = normalizeGroupKey(group);
@@ -849,9 +828,14 @@ class SenangWebsZero {
         this._previousFocus = document.activeElement instanceof HTMLElement ? document.activeElement : null;
         this._mount();
         this.isVisible = true;
-        // Render first step
-        await this._renderActiveStep(false);
-        logDebug(`Tour started. Group: "${this._currentGroup}", Steps: ${this.backendSteps.length}`, this.options.debug ?? true);
+        try {
+            // Render first step
+            await this._renderActiveStep(false);
+            logDebug(`Tour started. Group: "${this._currentGroup}", Steps: ${this.backendSteps.length}`, this.options.debug ?? true);
+        }
+        finally {
+            this._transitioning = false;
+        }
     }
     visitStep(step) {
         if (step === 'next')
@@ -863,24 +847,28 @@ class SenangWebsZero {
         return Promise.resolve();
     }
     async nextStep() {
-        if (!this.isVisible)
+        if (!this.isVisible || this._transitioning)
             return;
         const lastIndex = this.backendSteps.length - 1;
         if (this.activeStep >= lastIndex) {
-            // Finish
             await this._finish();
             return;
         }
         await this._goToStep(this.activeStep + 1);
     }
     async prevStep() {
-        if (!this.isVisible || this.activeStep <= 0)
+        if (!this.isVisible || this._transitioning || this.activeStep <= 0)
             return;
         await this._goToStep(this.activeStep - 1);
     }
     async exit() {
         if (!this.isVisible)
             return;
+        // Snap in-flight navigation and wait for it to settle so we tear down cleanly.
+        if (this._transitioning) {
+            this._cancelInFlightRender();
+            return;
+        }
         // Fire onBeforeExit (gating)
         if (this._onBeforeExit) {
             try {
@@ -895,28 +883,40 @@ class SenangWebsZero {
                 return;
             }
         }
-        this._teardown();
-        this.isVisible = false;
-        if (this._onAfterExit) {
-            try {
-                await this._onAfterExit();
-            }
-            catch { /* not gating */ }
-        }
-        logDebug('Tour exited.', this.options.debug ?? true);
-    }
-    async finishTour(exit = true, group) {
-        if (!this.options.completeOnFinish) {
-            logDebug('completeOnFinish is false; no persistence recorded.', this.options.debug ?? true);
-            return;
-        }
-        const g = normalizeGroupKey(group === undefined ? this._currentGroup : group);
-        setFinished(g);
-        deleteStoredStep(g);
-        logDebug(`Completion recorded for group "${g}".`, this.options.debug ?? true);
-        if (exit && this.isVisible) {
+        this._transitioning = true;
+        try {
             this._teardown();
             this.isVisible = false;
+            if (this._onAfterExit) {
+                try {
+                    await this._onAfterExit();
+                }
+                catch { /* not gating */ }
+            }
+            logDebug('Tour exited.', this.options.debug ?? true);
+        }
+        finally {
+            this._transitioning = false;
+        }
+    }
+    async finishTour(exit = true, group) {
+        // Fire onFinish (gating) — same pipeline as the Finish button.
+        if (this._onFinish) {
+            try {
+                const result = await this._onFinish();
+                if (result === false) {
+                    logDebug('Finish cancelled by onFinish handler.', this.options.debug ?? true);
+                    return;
+                }
+            }
+            catch {
+                logDebug('Finish cancelled by onFinish rejection.', this.options.debug ?? true);
+                return;
+            }
+        }
+        this._recordCompletion(normalizeGroupKey(group === undefined ? this._currentGroup : group));
+        if (exit && this.isVisible) {
+            await this.exit();
         }
     }
     isFinishedMethod(group) {
@@ -947,7 +947,17 @@ class SenangWebsZero {
         }
         this._resolveSteps(this.group);
         if (this.activeStep >= this.backendSteps.length) {
-            this.activeStep = Math.max(0, this.backendSteps.length - 1);
+            // Prefer the persisted step when available so refresh() stays consistent
+            // with start()'s rememberStep behavior.
+            if (this.options.rememberStep) {
+                const stored = getStoredStep(this._currentGroup);
+                this.activeStep = stored !== null && stored >= 0 && stored < this.backendSteps.length
+                    ? stored
+                    : Math.max(0, this.backendSteps.length - 1);
+            }
+            else {
+                this.activeStep = Math.max(0, this.backendSteps.length - 1);
+            }
         }
         if (this.backendSteps.length === 0) {
             warnDebug('No steps found after refresh.', this.options.debug ?? true);
@@ -964,22 +974,29 @@ class SenangWebsZero {
     async refreshDialog() {
         if (!this.isVisible || this.backendSteps.length === 0)
             return;
+        if (this._transitioning) {
+            warnDebug('refreshDialog() skipped: a step transition is in progress.', this.options.debug ?? true);
+            return;
+        }
         this._syncPublicStepsToBackend();
         const step = this.backendSteps[this.activeStep];
         if (!step)
             return;
-        updateDialogContent(step, this.backendSteps, this.activeStep, this.options);
+        updateDialogContent(this._dialogSession, step, this.backendSteps, this.activeStep, this.options);
         await this._positionDialog(step);
     }
     async updatePositions() {
         if (!this.isVisible || this.backendSteps.length === 0)
             return;
+        if (this._transitioning) {
+            warnDebug('updatePositions() skipped: a step transition is in progress.', this.options.debug ?? true);
+            return;
+        }
         this._syncPublicStepsToBackend();
         const step = this.backendSteps[this.activeStep];
         if (!step)
             return;
-        step.target = resolveStepTarget(step, this.activeStep, this.options.debug ?? true);
-        updateBackdrop(step, this.options);
+        updateBackdrop(this._backdropSession, step, this.options);
         await this._positionDialog(step);
     }
     // Lifecycle hook registration
@@ -1006,6 +1023,19 @@ class SenangWebsZero {
     isFinished(group) {
         return this.isFinishedMethod(group);
     }
+    /** Permanently tear down an instance so it can be garbage-collected. */
+    destroy() {
+        this._cancelInFlightRender();
+        this._objectSteps = [];
+        this.backendSteps = [];
+        this.tourSteps = [];
+        this._onBeforeStepChange = null;
+        this._onAfterStepChange = null;
+        this._onBeforeExit = null;
+        this._onAfterExit = null;
+        this._onFinish = null;
+        this._previousFocus = null;
+    }
     // -- Private methods --
     _resolveSteps(group) {
         const domSteps = scanDOM(group);
@@ -1018,6 +1048,7 @@ class SenangWebsZero {
         this.tourSteps = this.backendSteps.map(s => ({
             content: s.content,
             title: s.title,
+            // Keep the raw declared target (string or element); resolved at render.
             target: s.target,
             order: s.order,
             group: s.group,
@@ -1027,20 +1058,19 @@ class SenangWebsZero {
         }));
     }
     _mount() {
+        this._transitioning = true;
         // Create backdrop
-        this.backdrop = createBackdrop(this.options);
+        this._backdropSession = createBackdrop(this.options);
+        this.backdrop = this._backdropSession.el;
         document.body.appendChild(this.backdrop);
         // Create dialog
-        this.dialog = createDialog(this.options);
+        this._dialogSession = createDialog(this.options);
+        this.dialog = this._dialogSession.el;
         document.body.appendChild(this.dialog);
         // Wire up dialog button handlers
-        const { prevBtn, nextBtn, closeBtn } = getDialogButtons();
-        if (prevBtn) {
-            prevBtn.onclick = () => this.prevStep();
-        }
-        if (nextBtn) {
-            nextBtn.onclick = () => this.nextStep();
-        }
+        const { prevBtn, nextBtn, closeBtn } = this._dialogSession;
+        prevBtn.onclick = () => this.prevStep();
+        nextBtn.onclick = () => this.nextStep();
         if (closeBtn) {
             closeBtn.onclick = () => this.exit();
         }
@@ -1064,10 +1094,13 @@ class SenangWebsZero {
                     e.preventDefault();
                     this.prevStep();
                 }
-                else if (e.key === 'Escape' && this.options.exitOnEscape) {
-                    e.preventDefault();
-                    this.exit();
-                }
+            }
+            // Escape is respected independently of keyboardControls so users can
+            // always bail out when exitOnEscape is enabled.
+            if (e.key === 'Escape' && this.options.exitOnEscape) {
+                e.preventDefault();
+                this.exit();
+                return;
             }
             // Tab trapping stays active for the dialog even when arrow shortcuts are disabled.
             if (e.key === 'Tab') {
@@ -1088,8 +1121,8 @@ class SenangWebsZero {
             };
             this.backdrop.addEventListener('click', this._backdropClickHandler);
         }
-        // Resize/resposition handler
-        setupBackdropResizeHandler(() => this._onResize());
+        // Window resize + scroll listeners (ownership held by this instance)
+        setupViewportHandlers(this, () => this._onViewportChange());
     }
     _teardown() {
         // Remove listeners
@@ -1105,62 +1138,76 @@ class SenangWebsZero {
             this.backdrop?.removeEventListener('click', this._backdropClickHandler);
             this._backdropClickHandler = null;
         }
-        teardownBackdropResizeHandler();
+        teardownViewportHandlers(this);
         if (this._resizeDebounceTimer) {
             clearTimeout(this._resizeDebounceTimer);
             this._resizeDebounceTimer = null;
         }
+        this._cancelScheduledScrollRaf();
         // Remove DOM
-        removeDialog();
-        removeBackdrop();
+        removeDialog(this._dialogSession);
+        removeBackdrop(this._backdropSession);
         this._restoreFocus();
     }
+    _cancelInFlightRender() {
+        // Drop pending debounce/raf work; the running transition's effects against
+        // a torn-down dialog are no-ops, so a quick re-exit call is safe.
+        this._transitioning = false;
+        this.exit();
+    }
     async _goToStep(index) {
-        if (!this.isVisible)
+        if (!this.isVisible || this._transitioning)
             return;
         if (index < 0 || index >= this.backendSteps.length)
             return;
-        // Fire onBeforeStepChange (gating)
-        if (this._onBeforeStepChange) {
-            try {
-                const result = await this._onBeforeStepChange();
-                if (result === false) {
-                    logDebug('Step change cancelled by onBeforeStepChange handler.', this.options.debug ?? true);
+        this._transitioning = true;
+        try {
+            // Fire onBeforeStepChange (gating)
+            if (this._onBeforeStepChange) {
+                try {
+                    const result = await this._onBeforeStepChange();
+                    if (result === false) {
+                        logDebug('Step change cancelled by onBeforeStepChange handler.', this.options.debug ?? true);
+                        return;
+                    }
+                }
+                catch {
+                    logDebug('Step change cancelled by onBeforeStepChange rejection.', this.options.debug ?? true);
                     return;
                 }
             }
-            catch {
-                logDebug('Step change cancelled by onBeforeStepChange rejection.', this.options.debug ?? true);
-                return;
+            this.activeStep = index;
+            // Persist step if rememberStep
+            if (this.options.rememberStep) {
+                setStoredStep(this._currentGroup, index);
+            }
+            await this._renderActiveStep(true);
+            // Fire onAfterStepChange
+            if (this._onAfterStepChange) {
+                try {
+                    await this._onAfterStepChange();
+                }
+                catch { /* not gating */ }
             }
         }
-        this.activeStep = index;
-        // Persist step if rememberStep
-        if (this.options.rememberStep) {
-            setStoredStep(this._currentGroup, index);
-        }
-        await this._renderActiveStep(true);
-        // Fire onAfterStepChange
-        if (this._onAfterStepChange) {
-            try {
-                await this._onAfterStepChange();
-            }
-            catch { /* not gating */ }
+        finally {
+            this._transitioning = false;
         }
     }
     async _renderActiveStep(animate) {
         const step = this.backendSteps[this.activeStep];
-        if (!step)
+        if (!step || !this.isVisible)
             return;
         this._setAnimationClasses(animate);
-        // Resolve target inline for safety
-        step.target = resolveStepTarget(step, this.activeStep, this.options.debug ?? true);
+        // Lazy resolution for scroll; the declared target is never mutated so
+        // string selectors re-resolve on every render (late-mounted targets work).
+        const resolvedTarget = resolveStepTarget(step, this.activeStep, this.options.debug ?? true);
         // Scroll into view
-        await scrollTargetIntoView(step, this.options);
+        await scrollTargetIntoView({ ...step, target: resolvedTarget }, this.options);
         // Update backdrop
-        updateBackdrop(step, this.options);
+        updateBackdrop(this._backdropSession, step, this.options);
         // Update dialog content
-        updateDialogContent(step, this.backendSteps, this.activeStep, this.options);
+        updateDialogContent(this._dialogSession, step, this.backendSteps, this.activeStep, this.options);
         // On first render, remove animate classes so appearance is instant
         if (!animate) {
             this.dialog?.classList.remove('swz-animate');
@@ -1185,11 +1232,11 @@ class SenangWebsZero {
     async _positionDialog(step) {
         // Wait a tick for layout to settle
         await new Promise(r => requestAnimationFrame(() => requestAnimationFrame(r)));
-        const result = positionDialog(step, this.options);
-        applyPosition(result);
+        const result = positionDialog(this._dialogSession, step, this.options);
+        applyPosition(this._dialogSession, result);
     }
     async _finish() {
-        if (!this.isVisible)
+        if (!this.isVisible || this._transitioning)
             return;
         // Fire onFinish (gating)
         if (this._onFinish) {
@@ -1205,52 +1252,88 @@ class SenangWebsZero {
                 return;
             }
         }
-        // Record completion
-        if (this.options.completeOnFinish) {
-            setFinished(this._currentGroup);
-            // Clear stored step on completion
-            deleteStoredStep(this._currentGroup);
+        this._transitioning = true;
+        try {
+            // Record completion
+            if (this.options.completeOnFinish) {
+                this._recordCompletion(this._currentGroup);
+            }
+            // Teardown
+            this._teardown();
+            this.isVisible = false;
+            logDebug('Tour finished.', this.options.debug ?? true);
         }
-        // Teardown
-        this._teardown();
-        this.isVisible = false;
-        logDebug('Tour finished.', this.options.debug ?? true);
+        finally {
+            this._transitioning = false;
+        }
+    }
+    _recordCompletion(group) {
+        if (this.options.completeOnFinish) {
+            setFinished(group);
+            // Clear stored step on completion
+            deleteStoredStep(group);
+            logDebug(`Completion recorded for group "${group}".`, this.options.debug ?? true);
+        }
+        else {
+            logDebug('completeOnFinish is false; no persistence recorded.', this.options.debug ?? true);
+        }
     }
     _trapTab(e) {
-        if (!this.dialog)
+        const dialog = this.dialog;
+        if (!dialog)
             return;
-        const focusable = this.dialog.querySelectorAll('button:not([disabled]), [tabindex]:not([tabindex="-1"])');
-        if (focusable.length === 0)
+        const focusable = Array.from(dialog.querySelectorAll(FOCUSABLE_SELECTOR)).filter(el => el.offsetParent !== null || el === document.activeElement);
+        if (focusable.length === 0) {
+            // Keep focus on the dialog shell when nothing inside is focusable.
+            e.preventDefault();
+            dialog.focus();
             return;
+        }
         const first = focusable[0];
         const last = focusable[focusable.length - 1];
         if (e.shiftKey) {
-            if (document.activeElement === first) {
+            if (document.activeElement === first || document.activeElement === dialog) {
                 e.preventDefault();
                 last.focus();
             }
         }
         else {
-            if (document.activeElement === last) {
+            if (document.activeElement === last || document.activeElement === dialog) {
                 e.preventDefault();
                 first.focus();
             }
         }
     }
-    _onResize() {
-        if (this._resizeDebounceTimer) {
-            clearTimeout(this._resizeDebounceTimer);
+    _onViewportChange() {
+        if (!this.isVisible)
+            return;
+        // Scroll: reposition on the next frame so the cutout tracks its target.
+        if (this._scrollRafId !== null) {
+            cancelAnimationFrame(this._scrollRafId);
         }
-        this._resizeDebounceTimer = setTimeout(() => {
+        this._scrollRafId = requestAnimationFrame(() => {
+            this._scrollRafId = null;
             if (!this.isVisible)
                 return;
             const step = this.backendSteps[this.activeStep];
             if (step) {
-                step.target = resolveStepTarget(step, this.activeStep, this.options.debug ?? true);
-                updateBackdrop(step, this.options);
+                updateBackdrop(this._backdropSession, step, this.options);
                 this._positionDialog(step);
             }
+        });
+        // Resize: debounce heavier relayout work.
+        if (this._resizeDebounceTimer) {
+            clearTimeout(this._resizeDebounceTimer);
+        }
+        this._resizeDebounceTimer = setTimeout(() => {
+            this._resizeDebounceTimer = null;
         }, 100);
+    }
+    _cancelScheduledScrollRaf() {
+        if (this._scrollRafId !== null) {
+            cancelAnimationFrame(this._scrollRafId);
+            this._scrollRafId = null;
+        }
     }
     _replaceObjectSteps(steps) {
         if (steps === undefined || steps === null) {
@@ -1274,7 +1357,7 @@ class SenangWebsZero {
                 ...step,
                 content: publicStep.content,
                 title: publicStep.title,
-                target: resolveStepTarget(publicStep, index, this.options.debug ?? true),
+                target: publicStep.target,
                 order: publicStep.order,
                 group: publicStep.group,
                 margin: publicStep.margin,

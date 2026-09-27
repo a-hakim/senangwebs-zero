@@ -1,27 +1,32 @@
-import type { InternalStep, SWZOptions } from './types';
+import type { SWZOptions, InternalStep } from './types';
 import { getElementRect } from './utils';
 
-let backdropEl: HTMLElement | null = null;
-let cutoutEl: HTMLElement | null = null;
-let backdropPieces: HTMLElement[] = [];
-let resizeHandler: (() => void) | null = null;
-let scrollHandler: (() => void) | null = null;
-
-export function getBackdropElement(): HTMLElement {
-  if (!backdropEl) {
-    backdropEl = document.querySelector('.swz-backdrop') as HTMLElement;
-  }
-  return backdropEl!;
+export interface BackdropSession {
+  el: HTMLElement;
+  cutout: HTMLElement;
+  pieces: HTMLElement[];
 }
 
-export function getCutoutElement(): HTMLElement {
-  if (!cutoutEl) {
-    cutoutEl = document.querySelector('.swz-cutout') as HTMLElement;
-  }
-  return cutoutEl!;
+export interface ViewportHandlers {
+  resize: () => void;
+  scroll: () => void;
 }
 
-export function createBackdrop(options: SWZOptions): HTMLElement {
+let handlers: ViewportHandlers | null = null;
+let handlerOwner: object | null = null;
+
+function queryStepTarget(
+  target: InternalStep['target'],
+): Element | undefined {
+  if (!target) return undefined;
+  if (typeof target === 'string') {
+    const el = document.querySelector(target);
+    return el ?? undefined;
+  }
+  return target;
+}
+
+export function createBackdrop(options: SWZOptions): BackdropSession {
   const el = document.createElement('div');
   el.className = ['swz-backdrop', options.backdropClass || '']
     .filter(Boolean)
@@ -29,12 +34,12 @@ export function createBackdrop(options: SWZOptions): HTMLElement {
   el.style.cssText = `
     position: fixed;
     top: 0; left: 0; width: 100vw; height: 100vh;
-    z-index: ${(options.dialogZ ?? 999) - 1};
+    z-index: ${Math.max(0, (options.dialogZ ?? 999) - 1)};
     background: ${options.backdropColor};
     pointer-events: ${options.exitOnClickOutside ? 'auto' : 'none'};
   `;
 
-  backdropPieces = ['top', 'right', 'bottom', 'left'].map((name) => {
+  const pieces = ['top', 'right', 'bottom', 'left'].map((name) => {
     const piece = document.createElement('div');
     piece.className = `swz-backdrop-piece swz-backdrop-piece-${name}`;
     piece.style.cssText = `
@@ -55,22 +60,19 @@ export function createBackdrop(options: SWZOptions): HTMLElement {
   `;
   el.appendChild(cutout);
 
-  backdropEl = el;
-  cutoutEl = cutout;
-  return el;
+  return { el, cutout, pieces };
 }
 
 export function updateBackdrop(
+  session: BackdropSession,
   step: InternalStep,
   options: SWZOptions,
-  repositionFn?: () => void,
 ): void {
-  const bd = backdropEl;
-  const co = cutoutEl;
-  if (!bd || !co) return;
+  const { el: bd, cutout: co, pieces: backdropPieces } = session;
 
-  const target = step.target;
-  if (!target) {
+  const rawTarget = step.target;
+  const el = queryStepTarget(step.target);
+  if (!el) {
     // Centered: no cut-out, full dim
     co.style.display = 'none';
     bd.style.background = options.backdropColor || 'rgba(20,20,21,0.84)';
@@ -90,7 +92,7 @@ export function updateBackdrop(
     piece.style.pointerEvents = 'auto';
   });
 
-  const rect = getElementRect(target);
+  const rect = getElementRect(el);
   const pad = options.targetPadding ?? 30;
   const top = rect.top - pad;
   const left = rect.left - pad;
@@ -105,38 +107,47 @@ export function updateBackdrop(
   // Toggle pointer-events for propagateEvents
   co.style.pointerEvents = options.propagateEvents ? 'none' : 'auto';
 
-  updateBackdropPieces(left, top, left + width, top + height);
+  updateBackdropPieces(backdropPieces, left, top, left + width, top + height);
 }
 
-export function removeBackdrop(): void {
-  if (backdropEl?.parentNode) {
-    backdropEl.parentNode.removeChild(backdropEl);
-  }
-  backdropEl = null;
-  cutoutEl = null;
-  backdropPieces = [];
-}
-
-export function setupBackdropResizeHandler(callback: () => void): void {
-  if (resizeHandler) return;
-  resizeHandler = () => callback();
-  scrollHandler = () => callback();
-  window.addEventListener('resize', resizeHandler, { passive: true });
-  window.addEventListener('scroll', scrollHandler!, { passive: true });
-}
-
-export function teardownBackdropResizeHandler(): void {
-  if (resizeHandler) {
-    window.removeEventListener('resize', resizeHandler);
-    resizeHandler = null;
-  }
-  if (scrollHandler) {
-    window.removeEventListener('scroll', scrollHandler);
-    scrollHandler = null;
+export function removeBackdrop(session: BackdropSession): void {
+  if (session.el.parentNode) {
+    session.el.parentNode.removeChild(session.el);
   }
 }
 
-function updateBackdropPieces(left: number, top: number, right: number, bottom: number): void {
+export function setupViewportHandlers(
+  owner: object,
+  callback: () => void,
+): void {
+  // One shared set of window listeners; ownership transfers to the latest tour.
+  teardownViewportHandlers();
+  handlers = {
+    resize: () => callback(),
+    scroll: () => callback(),
+  };
+  handlerOwner = owner;
+  window.addEventListener('resize', handlers.resize, { passive: true });
+  window.addEventListener('scroll', handlers.scroll, { passive: true });
+}
+
+export function teardownViewportHandlers(owner?: object): void {
+  if (!handlers) return;
+  // Only the owning instance may release the shared listeners.
+  if (owner !== undefined && handlerOwner !== null && handlerOwner !== owner) return;
+  window.removeEventListener('resize', handlers.resize);
+  window.removeEventListener('scroll', handlers.scroll);
+  handlers = null;
+  handlerOwner = null;
+}
+
+function updateBackdropPieces(
+  backdropPieces: HTMLElement[],
+  left: number,
+  top: number,
+  right: number,
+  bottom: number,
+): void {
   const viewportW = window.innerWidth;
   const viewportH = window.innerHeight;
   const cutLeft = clamp(left, 0, viewportW);

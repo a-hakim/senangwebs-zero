@@ -84,14 +84,16 @@ export function objectStepsToInternal(steps: SWZStep[], debug: boolean): Interna
     if (debug) console.warn('[swz] addSteps() expects an array of SWZStep objects.');
     return [];
   }
+  // Target is kept as declared (string or element) and resolved lazily at
+  // render time, so steps declared before their elements exist still work.
   return steps.map((s, i) => ({
     content: s.content,
     title: s.title,
-    target: resolveStepTarget(s, i, debug),
+    target: s.target,
     order: s.order,
     group: s.group,
-    margin: (s as { margin?: number }).margin,
-    fixed: (s as { fixed?: boolean }).fixed,
+    margin: s.margin,
+    fixed: s.fixed,
     placement: s.placement,
     _index: i,
   }));

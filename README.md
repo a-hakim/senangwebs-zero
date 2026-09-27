@@ -89,7 +89,7 @@ Does **not** auto-start.
 | `nextStep()` | Advance one step (or finish if last). |
 | `prevStep()` | Go back one step. |
 | `exit()` | Close the tour without recording completion. Fires `onBeforeExit`/`onAfterExit`. |
-| `finishTour(exit?, group?)` | Programmatically mark complete. If `exit` is `true` (default), also closes the tour. |
+| `finishTour(exit?, group?)` | Mark the tour complete. Fires `onFinish` (gating). If `exit` is `true` (default), also closes the tour. |
 | `isFinished(group?)` | `boolean` — whether the tour group was completed. |
 | `deleteFinishedTour(group?)` | Clear the completion record. |
 | `addSteps(steps[])` | Append object steps to the tour. |
@@ -97,6 +97,7 @@ Does **not** auto-start.
 | `refresh()` | Recompute steps (rescan DOM + object steps), re-render. |
 | `refreshDialog()` | Re-render dialog content/position only (no step recompute). |
 | `updatePositions()` | Recompute backdrop + dialog geometry only. |
+| `destroy()` | Drop all state, hooks, and timers so the instance can be garbage-collected. |
 
 ### Properties
 
@@ -120,7 +121,7 @@ Single-handler, last-registration-wins. Each handler may be sync or return a Pro
 | `onAfterStepChange(fn)` | After new step renders | no |
 | `onBeforeExit(fn)` | Before exit (escape, click‑outside, close btn) | reject → stay open |
 | `onAfterExit(fn)` | After teardown | no |
-| `onFinish(fn)` | Finish button on last step | reject → cancel finish |
+| `onFinish(fn)` | Finish button on last step, or programmatic `finishTour()` | reject → cancel finish |
 
 ```js
 tour.onBeforeStepChange(() => {
@@ -163,9 +164,9 @@ tour.onFinish(async () => {
 | `progressBar` | `string` | `''` | Color string → renders progress bar. |
 | `completeOnFinish` | `boolean` | `true` | Persist completion in `localStorage`. |
 | `rememberStep` | `boolean` | `false` | Resume from last active step on reopen. |
-| `exitOnEscape` | `boolean` | `true` | Escape key exits the tour. |
+| `exitOnEscape` | `boolean` | `true` | Escape key exits the tour (independent of `keyboardControls`). |
 | `exitOnClickOutside` | `boolean` | `true` | Click outside dialog exits. |
-| `keyboardControls` | `boolean` | `true` | Arrow keys navigate, Escape exits. |
+| `keyboardControls` | `boolean` | `true` | Arrow keys navigate (Escape is controlled by `exitOnEscape`). |
 | `propagateEvents` | `boolean` | `false` | Allow interaction with target through highlight. |
 | `debug` | `boolean` | `true` | Emit console diagnostics. |
 
@@ -210,9 +211,15 @@ Pass `dialogClass` / `backdropClass` for custom styling hooks.
 
 - Dialog has `role="dialog"`, `aria-modal`, and `aria-label` from step title.
 - Focus moves to dialog on each step; focus returns to trigger element on exit.
-- Tab is trapped within the dialog while open.
+- Tab is trapped within the dialog while open (buttons, links, and form controls are all collected).
 - All buttons are real `<button>`s with accessible names.
 - `prefers-reduced-motion: reduce` disables all animations and smooth scrolling.
+
+## Notes
+
+- Step content is rendered as HTML (`innerHTML`). Only pass trusted or sanitized content.
+- String `target` selectors resolve lazily on each render, so steps may be declared before their elements exist.
+- One tour instance mounts its dialog/backdrop at a time per page section; each instance fully owns its own DOM and window listeners.
 
 ## TypeScript
 
@@ -229,6 +236,7 @@ npm run build          # JS (rollup) + CSS (sass)
 npm run build:js       # rollup only
 npm run build:css      # sass only
 npm run lint           # tsc --noEmit
+npm test               # vitest (jsdom)
 ```
 
 Outputs:

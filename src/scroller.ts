@@ -45,7 +45,3 @@ export function scrollTargetIntoView(step: InternalStep, options: SWZOptions): P
     setTimeout(resolve, delay);
   });
 }
-
-export function getElementRect(el: Element): DOMRect {
-  return el.getBoundingClientRect();
-}
